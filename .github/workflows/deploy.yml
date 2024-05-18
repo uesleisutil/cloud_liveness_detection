@@ -29,5 +29,6 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       run: |
+        apt-get update && apt-get install -y zip
         zip -r function.zip .
-        aws lambda update-function-code --function-name my-lambda-function --zip-file fileb://function.zip
+        aws lambda update-function-code --function-name cloud_liveness_detection --zip-file fileb://function.zip --region $AWS_DEFAULT_REGION
