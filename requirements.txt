@@ -1,5 +1,5 @@
 boto3
-opencv-python
+opencv-python-headless
 python-dotenv
 streamlit
 fastapi
