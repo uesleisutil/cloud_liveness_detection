@@ -4,7 +4,7 @@ import os
 import tempfile
 import uuid
 import numpy as np
-from utils import upload_to_s3, detect_faces, clear_s3_bucket
+from app.utils import upload_to_s3, detect_faces, clear_s3_bucket, is_liveness_detected, analyze_movement
 
 def capture_images(num_images=3, delay=1, initial_delay=2):
     cap = cv2.VideoCapture(0)
@@ -62,7 +62,7 @@ def main():
     if st.button("Capturar Imagem"):
         try:
             clear_s3_bucket()  # Excluir todas as imagens do S3
-            images, tempdirs = capture_images()
+            images, tempdirs = capture_images(initial_delay=2)  # Adicionar o atraso inicial
             for img in images:
                 st.image(img, caption="Imagem Capturada", use_column_width=True)
 

@@ -1,0 +1,15 @@
+# Use a imagem oficial do Python como imagem base
+FROM python:3.8-slim
+
+# Define o diretório de trabalho
+WORKDIR /app
+
+# Copia os arquivos de requisitos e instala as dependências
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copia o restante da aplicação
+COPY . .
+
+# Define o comando para iniciar a aplicação Streamlit
+CMD ["streamlit", "run", "app/streamlit_app.py", "--server.port=80", "--server.address=0.0.0.0"]

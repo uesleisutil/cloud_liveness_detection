@@ -3,7 +3,8 @@ from fastapi.responses import JSONResponse
 import os
 import uuid
 import tempfile
-from app.utils import upload_to_s3, detect_faces, clear_s3_bucket, is_liveness_detected, analyze_movement  # Ajuste a importação
+from mangum import Mangum
+from app.utils import upload_to_s3, detect_faces, clear_s3_bucket, is_liveness_detected, analyze_movement
 
 app = FastAPI()
 
@@ -44,3 +45,5 @@ async def upload_image(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+handler = Mangum(app)
