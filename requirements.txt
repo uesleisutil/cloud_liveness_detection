@@ -1,0 +1,6 @@
+boto3
+opencv-python
+python-dotenv
+streamlit
+fastapi
+uvicorn
