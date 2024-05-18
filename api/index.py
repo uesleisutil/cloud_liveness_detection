@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 import os
 import uuid
 import tempfile
-from .utils import upload_to_s3, detect_faces, clear_s3_bucket, is_liveness_detected, analyze_movement  # Ajuste a importação
+from app.utils import upload_to_s3, detect_faces, clear_s3_bucket, is_liveness_detected, analyze_movement  # Ajuste a importação
 
 app = FastAPI()
 
@@ -44,7 +44,3 @@ async def upload_image(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
