@@ -134,16 +134,16 @@ jobs:
         run: |
           set -x
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
-          if [ -n "$NAT_GATEWAY_ID" ];hen
+          if [ -n "$NAT_GATEWAY_ID" ]; then
             NAT_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?NatGatewayId=='$NAT_GATEWAY_ID']" --output text)
-            if [ -z "$NAT_ROUTE_EXISTS" ];hen
+            if [ -z "$NAT_ROUTE_EXISTS" ]; then
               aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --nat-gateway-id $NAT_GATEWAY_ID
             else
               echo "A rota NAT já está configurada."
             fi
           else
             IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='$INTERNET_GATEWAY_ID']" --output text)
-            if [ -z "$IGW_ROUTE_EXISTS" ];hen
+            if [ -z "$IGW_ROUTE_EXISTS" ]; then
               aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
             else
               echo "A rota para o gateway de Internet já está configurada."
