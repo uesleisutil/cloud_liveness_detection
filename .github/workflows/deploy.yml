@@ -150,6 +150,30 @@ jobs:
             fi
           fi
 
+          # Check and update S3 endpoint policy
+          S3_ENDPOINT_ID=$(aws ec2 describe-vpc-endpoints --filters "Name=service-name,Values=com.amazonaws.${{ secrets.AWS_DEFAULT_REGION }}.s3" --query "VpcEndpoints[?VpcId=='$VPC_ID'].VpcEndpointId" --output text)
+          if [ -n "$S3_ENDPOINT_ID" ]; then
+            echo "Updating S3 endpoint policy for VPC Endpoint ID: $S3_ENDPOINT_ID"
+            aws ec2 modify-vpc-endpoint --vpc-endpoint-id $S3_ENDPOINT_ID --policy-document '{
+              "Statement": [
+                {
+                  "Sid": "Amazon Linux AMI Repository Access",
+                  "Principal": "*",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": [
+                    "arn:aws:s3:::packages.*.amazonaws.com/*",
+                    "arn:aws:s3:::repo.*.amazonaws.com/*"
+                  ]
+                }
+              ]
+            }'
+          else
+            echo "No S3 endpoint found in the VPC."
+          fi
+
       - name: Create EC2 Instance
         id: create_ec2
         env:
