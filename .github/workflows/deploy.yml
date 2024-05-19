@@ -92,27 +92,24 @@ jobs:
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
           fi
 
-      - name: Ensure SSH Access in Security Group
+      - name: Ensure DNS and Hostnames are enabled
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
+          SUBNET_ID: ${{ secrets.SUBNET_ID }}
         run: |
           set -x
-          RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$RULE_EXISTS" ]; then
-            aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
-          else
-            echo "A regra de segurança para conexões SSH na porta 22 já existe."
+          VPC_ID=$(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text)
+
+          DNS_SUPPORT=$(aws ec2 describe-vpc-attribute --vpc-id $VPC_ID --attribute enableDnsSupport --query "EnableDnsSupport.Value" --output text)
+          if [ "$DNS_SUPPORT" != "true" ]; then
+            aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-support "{\"Value\":true}"
           fi
-          
-          # Check outbound rule for SSH
-          OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && FromPort==\`22\` && ToPort==\`22\` && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
-          else
-            echo "A regra de segurança de saída para conexões SSH na porta 22 já existe."
+
+          DNS_HOSTNAMES=$(aws ec2 describe-vpc-attribute --vpc-id $VPC_ID --attribute enableDnsHostnames --query "EnableDnsHostnames.Value" --output text)
+          if [ "$DNS_HOSTNAMES" != "true" ]; then
+            aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames "{\"Value\":true}"
           fi
 
       - name: Ensure Subnet and Route Table Configuration
@@ -126,7 +123,7 @@ jobs:
         run: |
           set -x
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
-          IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='igw-*']" --output text)
+          IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='$INTERNET_GATEWAY_ID']" --output text)
           if [ -z "$IGW_ROUTE_EXISTS" ]; then
             echo "A Subnet não está associada a uma tabela de rotas com um Gateway da Internet. Adicionando rota."
             aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
