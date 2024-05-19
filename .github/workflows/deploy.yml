@@ -47,7 +47,11 @@ jobs:
             for allocation_id in $ELASTIC_IP_ALLOCATION_IDS; do
               if [ "$allocation_id" != "$NAT_ALLOCATION_ID" ]; then
                 aws ec2 release-address --allocation-id $allocation_id
-                echo "Released Elastic IP with Allocation ID: $allocation_id"
+                if [ $? -eq 0 ]; then
+                  echo "Released Elastic IP with Allocation ID: $allocation_id"
+                else
+                  echo "Failed to release Elastic IP with Allocation ID: $allocation_id"
+                fi
               else
                 echo "Skipped Elastic IP with Allocation ID: $allocation_id (associated with NAT Gateway)"
               fi
