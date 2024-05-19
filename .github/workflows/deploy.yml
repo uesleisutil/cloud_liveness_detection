@@ -179,6 +179,15 @@ jobs:
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
 
+          # Verifica a conectividade de rede
+          echo "Verificando a conectividade de rede"
+          if ping -c 4 google.com; then
+            echo "Conectividade de rede está funcionando"
+          else
+            echo "Sem conectividade de rede. Verifique as regras de segurança e a configuração da VPC."
+            exit 1
+          fi
+
           # Crie um arquivo de script remoto
           cat <<'EOF' > deploy_script.sh
           sudo pkill -f yum || true
@@ -190,15 +199,6 @@ jobs:
 
           sudo yum clean all
           sudo yum makecache
-
-          # Verifica a conectividade de rede
-          echo "Verificando a conectividade de rede"
-          if ping -c 4 google.com; then
-            echo "Conectividade de rede está funcionando"
-          else
-            echo "Sem conectividade de rede. Verifique as regras de segurança e a configuração da VPC."
-            exit 1
-          fi
 
           echo "Atualizando pacotes e instalando dependências"
           timeout 5m sudo yum update -y
