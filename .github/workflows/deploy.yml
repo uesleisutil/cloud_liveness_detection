@@ -40,11 +40,11 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: |
           set -x
-          ELASTIC_IPS=$(aws ec2 describe-addresses --query 'Addresses[].PublicIp' --output text)
-          if [ -n "$ELASTIC_IPS" ]; then
-            for ip in $ELASTIC_IPS; do
-              aws ec2 release-address --public-ip $ip
-              echo "Released Elastic IP: $ip"
+          ELASTIC_IP_ALLOCATION_IDS=$(aws ec2 describe-addresses --query 'Addresses[].AllocationId' --output text)
+          if [ -n "$ELASTIC_IP_ALLOCATION_IDS" ]; then
+            for allocation_id in $ELASTIC_IP_ALLOCATION_IDS; do
+              aws ec2 release-address --allocation-id $allocation_id
+              echo "Released Elastic IP with Allocation ID: $allocation_id"
             done
           else
             echo "No Elastic IPs to release."
