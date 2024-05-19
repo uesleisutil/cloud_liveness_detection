@@ -80,7 +80,7 @@ jobs:
         git clone https://github.com/uesleisutil/liveness_detection.git /home/ec2-user/liveness_detection
         cd /home/ec2-user/liveness_detection
         nohup streamlit run app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
-        EOF
+EOF
 
         # Run EC2 instance with user-data script
         INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0c55b159cbfafe1f0 --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
@@ -94,18 +94,18 @@ jobs:
         echo "EC2 Instance ID: $INSTANCE_ID"
         echo "EC2 Instance IP: $INSTANCE_IP"
 
-        - name: Deploy Streamlit App
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
-          INSTANCE_IP: ${{ steps.create_ec2.outputs.INSTANCE_IP }}
-        run: |
-          # Connect to EC2 instance and pull latest code, then restart Streamlit
-          ssh -o StrictHostKeyChecking=no -i /path/to/your-key-pair.pem ec2-user@$INSTANCE_IP << 'EOF'
-          cd /home/ec2-user/liveness_detection
-          git pull
-          pkill streamlit
-          nohup streamlit run app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
-          EOF
+    - name: Deploy Streamlit App
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
+        INSTANCE_IP: ${{ steps.create_ec2.outputs.INSTANCE_IP }}
+      run: |
+        # Connect to EC2 instance and pull latest code, then restart Streamlit
+        ssh -o StrictHostKeyChecking=no -i /path/to/your-key-pair.pem ec2-user@$INSTANCE_IP << 'EOF'
+        cd /home/ec2-user/liveness_detection
+        git pull
+        pkill streamlit
+        nohup streamlit run app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
+        EOF
