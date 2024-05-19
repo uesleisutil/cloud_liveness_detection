@@ -172,6 +172,7 @@ jobs:
         run: |
           # Escreva a chave privada em um arquivo temporário
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
           chmod 600 ec2_key.pem
           nc -zv $INSTANCE_IP 22
           if [ $? -ne 0 ]; then
