@@ -81,10 +81,11 @@ jobs:
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
-          # Espera adicional para garantir que a instância esteja totalmente inicializada
-          sleep 60
+          # Escreva a chave privada em um arquivo temporário
+          echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
+          chmod 600 ec2_key.pem
           chmod +x deploy_streamlit.sh
-          ssh -o StrictHostKeyChecking=no -i $EC2_KEY_PEM ec2-user@$INSTANCE_IP << EOF
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP << 'EOF'
             cd /home/ec2-user/liveness_detection
             git pull
             pkill streamlit
