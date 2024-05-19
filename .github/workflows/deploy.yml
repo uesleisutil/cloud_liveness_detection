@@ -178,4 +178,4 @@ jobs:
           ssh -o StrictHostKeyChecking=no -t -i ec2_key.pem ec2-user@$INSTANCE_IP "sudo yum install -y python3"
           ssh -o StrictHostKeyChecking=no -t -i ec2_key.pem ec2-user@$INSTANCE_IP "sudo pip3 install streamlit boto3"
           ssh -o StrictHostKeyChecking=no -t -i ec2_key.pem ec2-user@$INSTANCE_IP "pkill streamlit || true"
-          ssh -o StrictHostKeyChecking=no -t -i ec2_key.pem ec2-user@$INSTANCE_IP "nohup streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 > streamlit.log 2>&1 &"
+          ssh -o StrictHostKeyChecking=no -t -i ec2_key.pem ec2-user@$INSTANCE_IP "nohup streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 > streamlit.log 2>&1 & disown"
