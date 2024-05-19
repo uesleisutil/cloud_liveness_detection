@@ -19,7 +19,6 @@ jobs:
           sudo apt-get install -y awscli
 
       - name: Stop Previous Instances
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -35,7 +34,6 @@ jobs:
           fi
 
       - name: Release Previous Elastic IPs
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -71,17 +69,28 @@ jobs:
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
         run: |
           set -x
-          RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`1024\` && ToPort==\`65535\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -n "$RULE_EXISTS" ]; then
+          INBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`1024\` && ToPort==\`65535\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+          if [ -n "$INBOUND_RULE_EXISTS" ]; then
             aws ec2 revoke-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 1024-65535 --cidr 0.0.0.0/0
           fi
           aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 1024-65535 --cidr 0.0.0.0/0
 
-          RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -n "$RULE_EXISTS" ]; then
+          SSH_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+          if [ -n "$SSH_RULE_EXISTS" ]; then
             aws ec2 revoke-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
           fi
           aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
+
+          OUTBOUND_DNS_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='udp' && FromPort==\`53\` && ToPort==\`53\` && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+          if [ -z "$OUTBOUND_DNS_RULE_EXISTS" ]; then
+            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol udp --port 53 --cidr 0.0.0.0/0
+          fi
+
+          OUTBOUND_HTTP_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && (FromPort==\`80\` || FromPort==\`443\`) && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+          if [ -z "$OUTBOUND_HTTP_RULE_EXISTS" ]; then
+            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
+            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
+          fi
 
       - name: Ensure SSH Access in Security Group
         env:
