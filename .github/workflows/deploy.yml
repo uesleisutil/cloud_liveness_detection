@@ -107,7 +107,7 @@ jobs:
           INBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`110\` && RuleAction=='allow' && Protocol=='6' && PortRange.From==\`22\` && PortRange.To==\`22\`]" --output text)
           if [ -z "$INBOUND_ACL_RULE_EXISTS" ]; then
             echo "Adicionando regra de entrada na ACL de rede para permitir conexões SSH."
-            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 120 --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
+            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 121 --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
           else
             echo "Regras de entrada da ACL de rede já configuradas."
           fi
