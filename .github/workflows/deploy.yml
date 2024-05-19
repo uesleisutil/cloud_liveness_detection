@@ -181,7 +181,6 @@ jobs:
 
           # Crie um arquivo de script remoto
           cat <<'EOF' > deploy_script.sh
-
           sudo pkill -f yum || true
           sudo pkill -f apt-get || true
           sudo pkill -9 -f yum || true
