@@ -178,7 +178,8 @@ jobs:
           sudo yum install -y python3
           sudo pip3 install streamlit boto3
           pkill streamlit || true
-          tmux new -d -s streamlit_session "streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 80 --server.address 0.0.0.0"
+          nohup streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 > streamlit.log 2>&1 &
+          disown
           EOF
           scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh && /home/ec2-user/deploy_script.sh"
