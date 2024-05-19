@@ -153,9 +153,9 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          INSTANCE_ID: ${{ env.INSTANCE_ID }}
         run: |
           set -x
-          INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[].Instances[?InstanceId=='${{ env.INSTANCE_ID }}'].[InstanceId]" --output text)
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
           if [ -z "$INSTANCE_IP" ]; then
             echo "Failed to retrieve instance IP"
@@ -165,7 +165,7 @@ jobs:
 
       - name: Verify SSH Connectivity
         env:
-          INSTANCE_IP: ${{ steps.get_instance_ip.outputs.INSTANCE_IP }}
+          INSTANCE_IP: ${{ env.INSTANCE_IP }}
         run: |
           echo "Verificando conectividade SSH para $INSTANCE_IP na porta 22"
           for i in {1..10}; do
@@ -184,7 +184,7 @@ jobs:
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
           AMI_ID: ${{ secrets.AMI_ID_AWS }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
-          INSTANCE_IP: ${{ steps.get_instance_ip.outputs.INSTANCE_IP }}
+          INSTANCE_IP: ${{ env.INSTANCE_IP }}
         run: |
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
