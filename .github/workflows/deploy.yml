@@ -57,7 +57,7 @@ jobs:
           # Verificar se a Subnet está associada a uma tabela de rotas com um Gateway da Internet
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
           IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='igw-*']" --output text)
-          if [ -z "$IGW_ROUTE_EXISTS" ]; then
+          if [ -z "$IGW_ROUTE_EXISTS" ]; então
             echo "A Subnet não está associada a uma tabela de rotas com um Gateway da Internet. Adicionando rota."
             aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
           else
@@ -66,7 +66,7 @@ jobs:
 
           # Verificar se a resolução de DNS está habilitada
           DNS_RESOLUTION=$(aws ec2 describe-vpcs --vpc-ids $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --query "Vpcs[0].EnableDnsSupport" --output text)
-          if [ "$DNS_RESOLUTION" != "true" ]; then
+          if [ "$DNS_RESOLUTION" != "true" ]; então
             echo "Ativando resolução de DNS para a VPC."
             aws ec2 modify-vpc-attribute --vpc-id $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --enable-dns-support
           else
@@ -75,7 +75,7 @@ jobs:
 
           # Verificar se o host DNS está habilitado
           DNS_HOSTNAMES=$(aws ec2 describe-vpcs --vpc-ids $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --query "Vpcs[0].EnableDnsHostnames" --output text)
-          if [ "$DNS_HOSTNAMES" != "true" ]; then
+          if [ "$DNS_HOSTNAMES" != "true" ]; então
             echo "Ativando hostnames DNS para a VPC."
             aws ec2 modify-vpc-attribute --vpc-id $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --enable-dns-hostnames
           else
@@ -92,7 +92,7 @@ jobs:
           set -x  # Ativar modo de depuração
           # Verificar se as regras de saída permitem todas as conexões de saída
           OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
+          if [ -z "$OUTBOUND_RULE_EXISTS" ]; então
             echo "Adicionando regra de saída para permitir todas as conexões de saída."
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol -1 --port -1 --cidr 0.0.0.0/0
           else
@@ -110,16 +110,16 @@ jobs:
           # Verificar regras de entrada da ACL de rede
           NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
           INBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`100\` && RuleAction=='allow' && Protocol=='6' && PortRange.From==\`22\` && PortRange.To==\`22\`]" --output text)
-          if [ -z "$INBOUND_ACL_RULE_EXISTS" ]; then
+          if [ -z "$INBOUND_ACL_RULE_EXISTS" ]; então
             echo "Adicionando regra de entrada na ACL de rede para permitir conexões SSH."
-            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=22,To=22 --egress --rule-action allow --cidr-block 0.0.0.0/0
+            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
           else
             echo "Regras de entrada da ACL de rede já configuradas."
           fi
 
           # Verificar regras de saída da ACL de rede
           OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`101\` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
-          if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; then
+          if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; então
             echo "Adicionando regra de saída na ACL de rede para permitir todas as conexões de saída."
             aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 101 --protocol tcp --port-range From=0,To=65535 --egress --rule-action allow --cidr-block 0.0.0.0/0
           else
@@ -142,7 +142,6 @@ jobs:
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           # Wait for the instance to be running
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-
       - name: Get instance IP
         id: get_instance_ip
         env:
@@ -152,7 +151,7 @@ jobs:
         run: |
           set -x  # Ativar modo de depuração
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-          if [ -z "$INSTANCE_IP" ]; then
+          if [ -z "$INSTANCE_IP" ]; então
             echo "Failed to retrieve instance IP"
             exit 1
           fi
@@ -173,7 +172,7 @@ jobs:
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
           nc -zv $INSTANCE_IP 22
-          if [ $? -ne 0 ]; then
+          if [ $? -ne 0 ]; então
             echo "Failed to connect to instance on port 22"
             exit 1
           fi
