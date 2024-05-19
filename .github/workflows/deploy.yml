@@ -38,9 +38,10 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          NAT_GATEWAY_ELASTIC_IP: ${{ secrets.ELASTIC_IP }}
         run: |
           set -x
-          ELASTIC_IP_ALLOCATION_IDS=$(aws ec2 describe-addresses --query 'Addresses[].AllocationId' --output text)
+          ELASTIC_IP_ALLOCATION_IDS=$(aws ec2 describe-addresses --query 'Addresses[?PublicIp!=`$NAT_GATEWAY_ELASTIC_IP`].AllocationId' --output text)
           if [ -n "$ELASTIC_IP_ALLOCATION_IDS" ]; then
             for allocation_id in $ELASTIC_IP_ALLOCATION_IDS; do
               aws ec2 release-address --allocation-id $allocation_id
@@ -119,16 +120,25 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
           INTERNET_GATEWAY_ID: ${{ secrets.INTERNET_GATEWAY_ID }}
+          NAT_GATEWAY_ID: ${{ secrets.NAT_GATEWAY_ID }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
         run: |
           set -x
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
-          IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='$INTERNET_GATEWAY_ID']" --output text)
-          if [ -z "$IGW_ROUTE_EXISTS" ]; then
-            echo "A Subnet não está associada a uma tabela de rotas com um Gateway da Internet. Adicionando rota."
-            aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
+          if [ -n "$NAT_GATEWAY_ID" ];hen
+            NAT_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?NatGatewayId=='$NAT_GATEWAY_ID']" --output text)
+            if [ -z "$NAT_ROUTE_EXISTS" ];hen
+              aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --nat-gateway-id $NAT_GATEWAY_ID
+            else
+              echo "A rota NAT já está configurada."
+            fi
           else
-            echo "A Subnet já está associada a uma tabela de rotas com um Gateway da Internet."
+            IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='$INTERNET_GATEWAY_ID']" --output text)
+            if [ -z "$IGW_ROUTE_EXISTS" ];hen
+              aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
+            else
+              echo "A rota para o gateway de Internet já está configurada."
+            fi
           fi
 
       - name: Create EC2 Instance
@@ -215,8 +225,6 @@ jobs:
           if [ -z "$OUTBOUND_HTTP_RULE" ]; then
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
-          else
-            echo "Regras de saída para HTTP/HTTPS já existem."
           fi
 
           # Verifica a conectividade de rede
