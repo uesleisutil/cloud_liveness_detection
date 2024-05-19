@@ -28,6 +28,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y awscli
 
+      - name: Ensure SSH Access in Security Group
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
+        run: |
+          set -x  # Ativar modo de depuração
+          # Verificar se a regra de segurança já existe
+          RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+          if [ -z "$RULE_EXISTS" ]; then
+            # Adicionar a regra de segurança para permitir conexões SSH na porta 22
+            aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
+          else
+            echo "A regra de segurança para conexões SSH na porta 22 já existe."
+          fi
+
       - name: Create EC2 Instance
         id: create_ec2
         env:
@@ -46,23 +63,6 @@ jobs:
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
           # Espera adicional para garantir que a instância esteja totalmente inicializada
           sleep 120
-
-      - name: Ensure SSH Access in Security Group
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
-        run: |
-          set -x  # Ativar modo de depuração
-          # Verificar se a regra de segurança já existe
-          RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$RULE_EXISTS" ]; then
-            # Adicionar a regra de segurança para permitir conexões SSH na porta 22
-            aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
-          else
-            echo "A regra de segurança para conexões SSH na porta 22 já existe."
-          fi
 
       - name: Get instance IP
         id: get_instance_ip
