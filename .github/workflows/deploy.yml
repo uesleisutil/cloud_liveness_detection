@@ -109,7 +109,7 @@ jobs:
           set -x  # Ativar modo de depuração
           # Verificar regras de entrada da ACL de rede
           NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
-          INBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==100 && RuleAction=='allow' && Protocol=='6' && PortRange.From==22 && PortRange.To==22]" --output text)
+          INBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`100\` && RuleAction=='allow' && Protocol=='6' && PortRange.From==\`22\` && PortRange.To==\`22\`]" --output text)
           if [ -z "$INBOUND_ACL_RULE_EXISTS" ]; then
             echo "Adicionando regra de entrada na ACL de rede para permitir conexões SSH."
             aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=22,To=22 --egress --rule-action allow --cidr-block 0.0.0.0/0
@@ -118,7 +118,7 @@ jobs:
           fi
 
           # Verificar regras de saída da ACL de rede
-          OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==100 && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
+          OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`100\` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
           if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; then
             echo "Adicionando regra de saída na ACL de rede para permitir todas as conexões de saída."
             aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=0,To=65535 --egress --rule-action allow --cidr-block 0.0.0.0/0
@@ -142,7 +142,7 @@ jobs:
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           # Wait for the instance to be running
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-          
+
       - name: Get instance IP
         id: get_instance_ip
         env:
