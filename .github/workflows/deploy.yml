@@ -38,8 +38,7 @@ jobs:
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
         run: |
-          # Use uma AMI válida para sua região
-          AMI_ID=ami-04b70fa74e45c3917  # Atualize com uma AMI válida para sua região
+          AMI_ID=${{ secrets.AMI_ID }}
           INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
@@ -49,7 +48,7 @@ jobs:
       - name: Get instance IP
         id: get_instance_ip
         run: |
-          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids ${{ env.INSTANCE_ID }} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids ${{ secrets.INSTANCE_ID }} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
           echo "::set-output name=INSTANCE_IP::$INSTANCE_IP"
 
