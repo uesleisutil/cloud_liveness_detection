@@ -51,6 +51,14 @@ jobs:
 
       - name: Get instance IP
         id: get_instance_ip
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
+          SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
+          SUBNET_ID: ${{ secrets.SUBNET_ID }}
+          AMI_ID: ${{ secrets.AMI_ID_AWS }}
         run: |
           set -x  # Ativar modo de depuração
           INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
@@ -64,6 +72,13 @@ jobs:
 
       - name: Deploy Streamlit App
         env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
+          SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
+          SUBNET_ID: ${{ secrets.SUBNET_ID }}
+          AMI_ID: ${{ secrets.AMI_ID_AWS }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
         run: |
           INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
