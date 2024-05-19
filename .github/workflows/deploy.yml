@@ -66,5 +66,7 @@ jobs:
         env:
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
         run: |
+          INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
           chmod +x deploy_streamlit.sh
           ./deploy_streamlit.sh ${{ steps.get_instance_ip.outputs.INSTANCE_IP }} "${{ secrets.EC2_KEY_PEM }}"
