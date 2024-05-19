@@ -75,8 +75,7 @@ jobs:
 
           # Verificar se o host DNS está habilitado
           DNS_HOSTNAMES=$(aws ec2 describe-vpcs --vpc-ids $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --query "Vpcs[0].EnableDnsHostnames" --output text)
-          if [ "$DNS_HOSTNAMES" != "true" ]; then
-            echo "Ativando hostnames DNS para a VPC."
+          if [ "$DNS_HOSTNAMES" != "true" ]; então echo "Ativando hostnames DNS para a VPC."
             aws ec2 modify-vpc-attribute --vpc-id $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --enable-dns-hostnames
           else
             echo "Hostnames DNS já estão ativados."
@@ -119,8 +118,7 @@ jobs:
 
           # Verificar regras de saída da ACL de rede
           OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`100\` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
-          if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; then
-            echo "Adicionando regra de saída na ACL de rede para permitir todas as conexões de saída."
+          if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; então echo "Adicionando regra de saída na ACL de rede para permitir todas as conexões de saída."
             aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=0,To=65535 --egress --rule-action allow --cidr-block 0.0.0.0/0
           else
             echo "Regras de saída da ACL de rede já configuradas."
@@ -152,7 +150,7 @@ jobs:
         run: |
           set -x  # Ativar modo de depuração
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-          if [ -z "$INSTANCE_IP" ]; then
+          if [ -z "$INSTANCE_IP" ]; então
             echo "Failed to retrieve instance IP"
             exit 1
           fi
@@ -173,7 +171,7 @@ jobs:
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
           nc -zv $INSTANCE_IP 22
-          if [ $? -ne 0 ]; then
+          if [ $? -ne 0 ]; então
             echo "Failed to connect to instance on port 22"
             exit 1
           fi
