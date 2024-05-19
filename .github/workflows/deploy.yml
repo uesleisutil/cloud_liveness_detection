@@ -53,6 +53,7 @@ jobs:
         id: get_instance_ip
         run: |
           set -x  # Ativar modo de depuração
+          INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
           if [ -z "$INSTANCE_IP" ]; then
             echo "Failed to retrieve instance IP"
