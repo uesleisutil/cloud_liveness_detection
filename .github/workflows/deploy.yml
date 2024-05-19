@@ -35,11 +35,9 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
         run: |
-          set -x  # Ativar modo de depuração
-          # Verificar se a regra de segurança já existe
+          set -x
           RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
           if [ -z "$RULE_EXISTS" ]; then
-            # Adicionar a regra de segurança para permitir conexões SSH na porta 22
             aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
           else
             echo "A regra de segurança para conexões SSH na porta 22 já existe."
@@ -53,33 +51,26 @@ jobs:
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
           INTERNET_GATEWAY_ID: ${{ secrets.INTERNET_GATEWAY_ID }}
         run: |
-          set -x  # Ativar modo de depuração
-          # Verificar se a Subnet está associada a uma tabela de rotas com um Gateway da Internet
+          set -x
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
           IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='igw-*']" --output text)
           if [ -z "$IGW_ROUTE_EXISTS" ]; then
-            echo "A Subnet não está associada a uma tabela de rotas com um Gateway da Internet. Adicionando rota."
             aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
           else
             echo "A Subnet está corretamente configurada."
           fi
 
-          # Obter o ID da VPC
           VPC_ID=$(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text)
 
-          # Verificar se a resolução de DNS está habilitada
           DNS_RESOLUTION=$(aws ec2 describe-vpcs --vpc-ids $VPC_ID --query "Vpcs[0].EnableDnsSupport" --output text)
           if [ "$DNS_RESOLUTION" != "true" ]; then
-            echo "Ativando resolução de DNS para a VPC."
             aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-support
           else
             echo "Resolução de DNS já está ativada."
           fi
 
-          # Verificar se o host DNS está habilitado
           DNS_HOSTNAMES=$(aws ec2 describe-vpcs --vpc-ids $VPC_ID --query "Vpcs[0].EnableDnsHostnames" --output text)
           if [ "$DNS_HOSTNAMES" != "true" ]; then
-            echo "Ativando hostnames DNS para a VPC."
             aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames
           else
             echo "Hostnames DNS já estão ativados."
@@ -92,11 +83,9 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
         run: |
-          set -x  # Ativar modo de depuração
-          # Verificar se as regras de saída permitem todas as conexões de saída
+          set -x
           OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
           if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
-            echo "Adicionando regra de saída para permitir todas as conexões de saída."
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol -1 --port -1 --cidr 0.0.0.0/0
           else
             echo "Regras de saída já configuradas."
@@ -109,21 +98,17 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
         run: |
-          set -x  # Ativar modo de depuração
-          # Verificar regras de entrada da ACL de rede
+          set -x
           NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
           INBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`100\` && RuleAction=='allow' && Protocol=='6' && PortRange.From==\`22\` && PortRange.To==\`22\`]" --output text)
           if [ -z "$INBOUND_ACL_RULE_EXISTS" ]; then
-            echo "Adicionando regra de entrada na ACL de rede para permitir conexões SSH."
-            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 101 --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
+            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
           else
             echo "Regras de entrada da ACL de rede já configuradas."
           fi
 
-          # Verificar regras de saída da ACL de rede
           OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`101\` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
           if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; then
-            echo "Adicionando regra de saída na ACL de rede para permitir todas as conexões de saída."
             aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 101 --protocol tcp --port-range From=0,To=65535 --egress --rule-action allow --cidr-block 0.0.0.0/0
           else
             echo "Regras de saída da ACL de rede já configuradas."
@@ -140,10 +125,9 @@ jobs:
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
           AMI_ID: ${{ secrets.AMI_ID_AWS }}
         run: |
-          set -x  # Ativar modo de depuração
-          INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --associate-public-ip-address --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
+          set -x
+          INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --associate-public-ip-address --query 'Instances[0].InstanceId' --output text)
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-          # Wait for the instance to be running
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
 
       - name: Get instance IP
@@ -153,7 +137,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: |
-          set -x  # Ativar modo de depuração
+          set -x
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
           if [ -z "$INSTANCE_IP" ]; então
             echo "Failed to retrieve instance IP"
@@ -184,16 +168,13 @@ jobs:
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
           INSTANCE_IP: ${{ steps.get_instance_ip.outputs.INSTANCE_IP }}
         run: |
-          # Escreva a chave privada em um arquivo temporário
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
-          
-          # Tentativa de conexão via SSH
-          chmod +x deploy_streamlit.sh
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP << 'EOF'
-            cd /home/ec2-user/liveness_detection
-            git pull
-            pkill streamlit
-            nohup streamlit run app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
-          EOF
 
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP << 'EOF'
+            sudo yum update -y
+            sudo yum install -y python3
+            sudo pip3 install streamlit boto3
+            pkill streamlit || true
+            nohup streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
+          EOF
