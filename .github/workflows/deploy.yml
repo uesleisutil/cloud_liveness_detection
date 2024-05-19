@@ -112,8 +112,13 @@ jobs:
           # Escreva a chave privada em um arquivo temporário
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
-          # Espera adicional para garantir que a instância esteja totalmente inicializada
+          # Verificação adicional de conectividade
           sleep 120
+          nc -zv $INSTANCE_IP 22
+          if [ $? -ne 0 ]; then
+            echo "Failed to connect to instance on port 22"
+            exit 1
+          fi
           chmod +x deploy_streamlit.sh
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP << 'EOF'
             cd /home/ec2-user/liveness_detection
