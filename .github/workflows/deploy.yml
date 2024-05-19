@@ -47,23 +47,25 @@ jobs:
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
 
           # Espera adicional para garantir que a instância esteja totalmente inicializada
-          sleep 80
+          sleep 60
 
       - name: Check Instance State
         id: check_instance_state
         run: |
           set -x  # Ativar modo de depuração
-          MAX_RETRIES=5
-          RETRY_DELAY=20
+          MAX_RETRIES=10
+          RETRY_DELAY=30
           for ((i=1; i<=$MAX_RETRIES; i++)); do
             INSTANCE_STATE=$(aws ec2 describe-instances --instance-ids ${{ env.INSTANCE_ID }} --query 'Reservations[0].Instances[0].State.Name' --output text)
             if [ "$INSTANCE_STATE" == "running" ]; then
               echo "Instance is running"
               break
+            elif [ -z "$INSTANCE_STATE" ]; then
+              echo "Failed to retrieve instance state (attempt $i/$MAX_RETRIES)"
             else
               echo "Instance is not running yet (attempt $i/$MAX_RETRIES)"
-              sleep $RETRY_DELAY
             fi
+            sleep $RETRY_DELAY
           done
 
           if [ "$INSTANCE_STATE" != "running" ]; then
@@ -76,6 +78,10 @@ jobs:
         run: |
           set -x  # Ativar modo de depuração
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids ${{ env.INSTANCE_ID }} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+          if [ -z "$INSTANCE_IP" ]; then
+            echo "Failed to retrieve instance IP"
+            exit 1
+          fi
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
           echo "::set-output name=INSTANCE_IP::$INSTANCE_IP"
 
