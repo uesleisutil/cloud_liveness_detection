@@ -180,7 +180,6 @@ jobs:
           chmod 600 ec2_key.pem
 
           # Crie um arquivo de script remoto
-          # Crie um arquivo de script remoto
           cat <<'EOF' > deploy_script.sh
 
           sudo pkill -f yum || true
@@ -211,6 +210,9 @@ jobs:
 
           # Transfira o arquivo de script para a instância EC2
           scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
+
+          # Crie o diretório liveness_detection na instância EC2
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "mkdir -p /home/ec2-user/liveness_detection"
 
           # Transfira o código da aplicação para a instância EC2
           scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@$INSTANCE_IP:/home/ec2-user/liveness_detection
