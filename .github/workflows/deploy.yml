@@ -44,8 +44,6 @@ jobs:
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           # Wait for the instance to be running
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-          # Espera adicional para garantir que a instância esteja totalmente inicializada
-          sleep 30
 
       - name: Get instance IP
         id: get_instance_ip
@@ -66,7 +64,6 @@ jobs:
             exit 1
           fi
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
-          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV/instance_ip
 
       - name: Deploy Streamlit App
         id: deploy_streamlit
