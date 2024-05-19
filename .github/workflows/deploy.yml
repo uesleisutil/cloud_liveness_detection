@@ -183,3 +183,4 @@ jobs:
           EOF
           scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh && /home/ec2-user/deploy_script.sh"
+          aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
