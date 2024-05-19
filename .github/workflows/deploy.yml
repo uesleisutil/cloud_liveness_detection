@@ -70,7 +70,7 @@ jobs:
           fi
 
           DNS_HOSTNAMES=$(aws ec2 describe-vpcs --vpc-ids $VPC_ID --query "Vpcs[0].EnableDnsHostnames" --output text)
-          if [ "$DNS_HOSTNAMES" != "true" ]; então
+          if [ "$DNS_HOSTNAMES" != "true" ]; then
             aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames
           else
             echo "Hostnames DNS já estão ativados."
@@ -85,7 +85,7 @@ jobs:
         run: |
           set -x
           OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
+          if [ -z "$OUTBOUND_RULE_EXISTS" ]; então
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol -1 --port -1 --cidr 0.0.0.0/0
           else
             echo "Regras de saída já configuradas."
