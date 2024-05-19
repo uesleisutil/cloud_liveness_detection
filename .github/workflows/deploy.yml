@@ -118,10 +118,10 @@ jobs:
           fi
 
           # Verificar regras de saída da ACL de rede
-          OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`100\` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
+          OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`101\` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
           if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; then
             echo "Adicionando regra de saída na ACL de rede para permitir todas as conexões de saída."
-            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=0,To=65535 --egress --rule-action allow --cidr-block 0.0.0.0/0
+            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 101 --protocol tcp --port-range From=0,To=65535 --egress --rule-action allow --cidr-block 0.0.0.0/0
           else
             echo "Regras de saída da ACL de rede já configuradas."
           fi
