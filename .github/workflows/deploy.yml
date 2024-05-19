@@ -174,23 +174,15 @@ jobs:
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
           cat <<'EOF' > deploy_script.sh
-          ps aux
           sudo pkill -f yum || true
           sudo pkill -f apt-get || true
+          sudo pkill -9 -f yum || true
+          sudo pkill -9 -f apt-get || true
           sudo killall -9 yum || true
           sudo killall -9 apt-get || true
-          sudo yum clean all
-          sudo yum makecache
-          sudo yum update -y
-          sudo yum install -y python3 tmux
-          sudo pip3 install streamlit boto3
-          pkill streamlit || true
-          tmux new -d -s streamlit_session "streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
+          ps aux
+          streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0
           EOF
           scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
-
-          # Execute o script na instância EC2
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh && /home/ec2-user/deploy_script.sh"
-
-          # Adicione uma regra de entrada para permitir o tráfego HTTP na porta 8080
           aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
