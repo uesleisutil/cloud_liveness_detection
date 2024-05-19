@@ -53,7 +53,7 @@ jobs:
         run: |
           set -x
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
-          IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='igw-*']" --output text)
+          IGW_ROUTE_EXISTS=$(aws.ec2.describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='igw-*']" --output text)
           if [ -z "$IGW_ROUTE_EXISTS" ]; then
             echo "A Subnet não está associada a uma tabela de rotas com um Gateway da Internet. Adicionando rota."
             aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
@@ -195,4 +195,5 @@ jobs:
             sudo pip3 install streamlit boto3
             pkill streamlit || true
             nohup streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
+            exit
           EOF
