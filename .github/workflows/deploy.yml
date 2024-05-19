@@ -44,6 +44,8 @@ jobs:
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           # Wait for the instance to be running
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+          # Espera adicional para garantir que a instância esteja totalmente inicializada
+          sleep 120
 
       - name: Ensure SSH Access in Security Group
         env:
@@ -91,6 +93,8 @@ jobs:
           # Escreva a chave privada em um arquivo temporário
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
+          # Espera adicional para garantir que a instância esteja totalmente inicializada
+          sleep 120
           chmod +x deploy_streamlit.sh
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP << 'EOF'
             cd /home/ec2-user/liveness_detection
