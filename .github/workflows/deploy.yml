@@ -26,7 +26,7 @@ jobs:
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
         run: |
           set -x
-          RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==`22` && ToPort==`22` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+          RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
           if [ -z "$RULE_EXISTS" ]; then
             aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
           else
@@ -94,7 +94,7 @@ jobs:
         run: |
           set -x
           NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
-          EXISTING_RULES=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==`100` || RuleNumber==`110`].RuleNumber" --output text)
+          EXISTING_RULES=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`100\` || RuleNumber==\`110\`].RuleNumber" --output text)
           
           if [[ "$EXISTING_RULES" == *"100"* || "$EXISTING_RULES" == *"110"* ]]; then
             if [[ "$EXISTING_RULES" == *"100"* ]]; then
@@ -113,7 +113,7 @@ jobs:
           echo "Adicionando regra de entrada 110 na ACL de rede para permitir conexões SSH."
           aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 110 --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
 
-          OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==`111` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
+          OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`111\` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
           if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; then
             echo "Adicionando regra de saída na ACL de rede para permitir todas as conexões de saída."
             aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 111 --protocol tcp --port-range From=0,To=65535 --egress --rule-action allow --cidr-block 0.0.0.0/0
@@ -180,6 +180,7 @@ jobs:
           chmod 600 ec2_key.pem
 
           # Crie um arquivo de script remoto
+          # Crie um arquivo de script remoto
           cat <<'EOF' > deploy_script.sh
 
           sudo pkill -f yum || true
@@ -204,13 +205,18 @@ jobs:
               exit 1
           fi
 
+          # Inicia o Streamlit usando tmux
           tmux new -d -s streamlit_session "streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
           EOF
 
+          # Transfira o arquivo de script para a instância EC2
           scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
 
+          # Transfira o código da aplicação para a instância EC2
           scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@$INSTANCE_IP:/home/ec2-user/liveness_detection
 
+          # Execute o script na instância EC2
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh && /home/ec2-user/deploy_script.sh"
 
+          # Adicione uma regra de entrada para permitir o tráfego HTTP na porta 8080
           aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
