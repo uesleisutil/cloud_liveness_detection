@@ -191,9 +191,18 @@ jobs:
           sudo yum clean all
           sudo yum makecache
 
+          # Verifica a conectividade de rede
+          echo "Verificando a conectividade de rede"
+          if ping -c 4 google.com; then
+            echo "Conectividade de rede está funcionando"
+          else
+            echo "Sem conectividade de rede. Verifique as regras de segurança e a configuração da VPC."
+            exit 1
+          fi
+
           echo "Atualizando pacotes e instalando dependências"
-          timeout 3m sudo yum update -y
-          timeout 3m sudo yum install -y python3 tmux
+          timeout 5m sudo yum update -y
+          timeout 5m sudo yum install -y python3 tmux
           
           echo "Instalando bibliotecas Python"
           sudo pip3 install --upgrade pip
