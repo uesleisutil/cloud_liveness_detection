@@ -37,19 +37,25 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          NAT_GATEWAY_ELASTIC_IP: ${{ secrets.ELASTIC_IP }}
+            WS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          NAT_GATEWAY_ELASTIC_IP: "44.223.143.33"
         run: |
           set -x
+          NAT_ALLOCATION_ID=$(aws ec2 describe-addresses --query 'Addresses[?PublicIp==`$NAT_GATEWAY_ELASTIC_IP`].AllocationId' --output text)
           ELASTIC_IP_ALLOCATION_IDS=$(aws ec2 describe-addresses --query 'Addresses[?PublicIp!=`$NAT_GATEWAY_ELASTIC_IP`].AllocationId' --output text)
           if [ -n "$ELASTIC_IP_ALLOCATION_IDS" ]; then
             for allocation_id in $ELASTIC_IP_ALLOCATION_IDS; do
-              aws ec2 release-address --allocation-id $allocation_id
-              echo "Released Elastic IP with Allocation ID: $allocation_id"
+              if [ "$allocation_id" != "$NAT_ALLOCATION_ID" ]; then
+                aws ec2 release-address --allocation-id $allocation_id
+                echo "Released Elastic IP with Allocation ID: $allocation_id"
+              else
+                echo "Skipped Elastic IP with Allocation ID: $allocation_id (associated with NAT Gateway)"
+              fi
             done
           else
             echo "No Elastic IPs to release."
           fi
+  
 
       - name: Create Elastic IP
         id: create_elastic_ip
