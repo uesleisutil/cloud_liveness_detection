@@ -37,12 +37,12 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          WS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          NAT_GATEWAY_ELASTIC_IP: ${{ secrets.NAT_GATEWAY_ID }}        
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          NAT_GATEWAY_ELASTIC_IP: ${{ secrets.NAT_GATEWAY_ELASTIC_IP }}
         run: |
           set -x
-          NAT_ALLOCATION_ID=$(aws ec2 describe-addresses --query 'Addresses[?PublicIp==`$NAT_GATEWAY_ELASTIC_IP`].AllocationId' --output text)
-          ELASTIC_IP_ALLOCATION_IDS=$(aws ec2 describe-addresses --query 'Addresses[?PublicIp!=`$NAT_GATEWAY_ELASTIC_IP`].AllocationId' --output text)
+          NAT_ALLOCATION_ID=$(aws ec2 describe-addresses --query "Addresses[?PublicIp=='${NAT_GATEWAY_ELASTIC_IP}'].AllocationId" --output text)
+          ELASTIC_IP_ALLOCATION_IDS=$(aws ec2 describe-addresses --query "Addresses[?PublicIp!='${NAT_GATEWAY_ELASTIC_IP}'].AllocationId" --output text)
           if [ -n "$ELASTIC_IP_ALLOCATION_IDS" ]; then
             for allocation_id in $ELASTIC_IP_ALLOCATION_IDS; do
               if [ "$allocation_id" != "$NAT_ALLOCATION_ID" ]; then
