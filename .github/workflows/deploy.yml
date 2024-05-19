@@ -28,8 +28,23 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        LAMBDA_FUNCTION_NAME: my-new-lambda-function
+        LAMBDA_ROLE_ARN: arn:aws:iam::200093399689:role/your-lambda-execution-role
       run: |
         apt-get update && apt-get install -y zip
         zip -r function.zip .
         aws configure set region $AWS_DEFAULT_REGION
-        aws lambda update-function-code --function-name my-new-lambda-function --zip-file fileb://function.zip --region $AWS_DEFAULT_REGION
+
+        # Check if the Lambda function exists
+        if aws lambda get-function --function-name $LAMBDA_FUNCTION_NAME; then
+          echo "Function exists, updating..."
+          aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --zip-file fileb://function.zip --region $AWS_DEFAULT_REGION
+        else
+          echo "Function does not exist, creating..."
+          aws lambda create-function --function-name $LAMBDA_FUNCTION_NAME \
+            --runtime python3.8 \
+            --role $LAMBDA_ROLE_ARN \
+            --handler app.api.handler \
+            --zip-file fileb://function.zip \
+            --region $AWS_DEFAULT_REGION
+        fi
