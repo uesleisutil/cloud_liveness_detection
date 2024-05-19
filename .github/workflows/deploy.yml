@@ -88,9 +88,6 @@ jobs:
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
           echo "::set-output name=INSTANCE_IP::$INSTANCE_IP"
 
-      - name: Print instance IP (for debugging)
-        run: echo "Instance IP: ${{ steps.get_instance_ip.outputs.INSTANCE_IP }}"
-
       - name: Deploy Streamlit App
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
