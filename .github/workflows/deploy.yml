@@ -212,6 +212,15 @@ jobs:
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
 
+          # Verifique se a regra de saída para HTTP/HTTPS existe
+          OUTBOUND_HTTP_RULE=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && (FromPort==\`80\` || FromPort==\`443\`) && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+          if [ -z "$OUTBOUND_HTTP_RULE" ]; then
+            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
+            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
+          else
+            echo "Regras de saída para HTTP/HTTPS já existem."
+          fi
+
           # Verifica a conectividade de rede
           echo "Verificando a conectividade de rede"
           if ping -c 4 google.com; then
@@ -267,11 +276,3 @@ jobs:
           # Adicione uma regra de entrada para permitir o tráfego HTTP na porta 8080
           aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
 
-          # Verifique se a regra de saída para HTTP/HTTPS existe
-          OUTBOUND_HTTP_RULE=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && (FromPort==\`80\` || FromPort==\`443\`) && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_HTTP_RULE" ]; then
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
-          else
-            echo "Regras de saída para HTTP/HTTPS já existem."
-          fi
