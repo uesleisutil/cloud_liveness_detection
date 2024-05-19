@@ -92,7 +92,7 @@ jobs:
           set -x  # Ativar modo de depuração
           # Verificar se as regras de saída permitem todas as conexões de saída
           OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
+          if [ -z "$OUTBOUND_RULE_EXISTS" ];then
             echo "Adicionando regra de saída para permitir todas as conexões de saída."
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol -1 --port -1 --cidr 0.0.0.0/0
           else
