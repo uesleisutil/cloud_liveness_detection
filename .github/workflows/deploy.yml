@@ -31,4 +31,5 @@ jobs:
       run: |
         apt-get update && apt-get install -y zip
         zip -r function.zip .
-        aws lambda update-function-code --function-name cloud_liveness_detection --zip-file fileb://function.zip --region $AWS_DEFAULT_REGION
+        aws configure set region $AWS_DEFAULT_REGION
+        aws lambda update-function-code --function-name my-new-lambda-function --zip-file fileb://function.zip --region $AWS_DEFAULT_REGION
