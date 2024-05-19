@@ -13,6 +13,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Install AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y awscli
+
       - name: Stop Previous Instances
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
@@ -66,13 +71,8 @@ jobs:
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
         run: |
           set -x
-          aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 1024-65535 --cidr 0.0.0.0/0 --rule-number 100
-          aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0 --rule-number 101
-
-      - name: Install AWS CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y awscli
+          aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 1024-65535 --cidr 0.0.0.0/0 --rule-action allow --rule-number 100
+          aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0 --rule-action allow --rule-number 101
 
       - name: Ensure SSH Access in Security Group
         env:
@@ -104,6 +104,7 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
           INTERNET_GATEWAY_ID: ${{ secrets.INTERNET_GATEWAY_ID }}
+          SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
         run: |
           set -x
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
@@ -113,92 +114,6 @@ jobs:
             aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
           else
             echo "A Subnet já está associada a uma tabela de rotas com um Gateway da Internet."
-          fi
-
-          VPC_ID=$(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text)
-
-          DNS_RESOLUTION=$(aws ec2 describe-vpcs --vpc-ids $VPC_ID --query "Vpcs[0].EnableDnsSupport" --output text)
-          if [ "$DNS_RESOLUTION" != "true" ]; then
-            echo "Ativando resolução de DNS para a VPC."
-            aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-support
-          else
-            echo "Resolução de DNS já está ativada."
-          fi
-
-          DNS_HOSTNAMES=$(aws ec2 describe-vpcs --vpc-ids $VPC_ID --query "Vpcs[0].EnableDnsHostnames" --output text)
-          if [ "$DNS_HOSTNAMES" != "true" ]; then
-            echo "Ativando hostnames DNS para a VPC."
-            aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames
-          else
-            echo "Hostnames DNS já estão ativados."
-          fi
-
-          # Ensure outbound access for DNS and HTTP/HTTPS
-          OUTBOUND_DNS_RULE=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='udp' && FromPort==\`53\` && ToPort==\`53\` && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_DNS_RULE" ]; then
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol udp --port 53 --cidr 0.0.0.0/0
-          else
-            echo "Regra de segurança de saída para DNS já existe."
-          fi
-
-          OUTBOUND_HTTP_RULE=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && (FromPort==\`80\` || FromPort==\`443\`) && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_HTTP_RULE" ]; then
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
-          else
-            echo "Regra de segurança de saída para HTTP/HTTPS já existe."
-          fi
-
-      - name: Check Outbound Rules in Security Group
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
-        run: |
-          set -x
-          OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
-            echo "Adicionando regra de saída para permitir todas as conexões de saída."
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol -1 --port -1 --cidr 0.0.0.0/0
-          else
-            echo "Regras de saída já configuradas."
-          fi
-
-      - name: Check Network ACL Configuration
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          SUBNET_ID: ${{ secrets.SUBNET_ID }}
-        run: |
-          set -x
-          NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
-          EXISTING_RULES=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`100\` || RuleNumber==\`110\`].RuleNumber" --output text)
-          
-          if [[ "$EXISTING_RULES" == *"100"* || "$EXISTING_RULES" == *"110"* ]]; then
-            if [[ "$EXISTING_RULES" == *"100"* ]]; then
-              echo "Deletando a regra existente 100 na ACL de rede."
-              aws ec2 delete-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --ingress
-            fi
-            if [[ "$EXISTING_RULES" == *"110"* ]]; then
-              echo "Deletando a regra existente 110 na ACL de rede."
-              aws ec2 delete-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 110 --ingress
-            fi
-          fi
-
-          echo "Adicionando regra de entrada 100 na ACL de rede para permitir conexões TCP personalizadas."
-          aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=1024,To=65535 --ingress --rule-action allow --cidr-block 0.0.0.0/0
-
-          echo "Adicionando regra de entrada 101 na ACL de rede para permitir conexões SSH."
-          aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 101 --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
-
-          OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`111\` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
-          if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; then
-            echo "Adicionando regra de saída na ACL de rede para permitir todas as conexões de saída."
-            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 111 --protocol tcp --port-range From=0,To=65535 --egress --rule-action allow --cidr-block 0.0.0.0/0
-          else
-            echo "Regras de saída da ACL de rede já configuradas."
           fi
 
       - name: Create EC2 Instance
@@ -211,6 +126,7 @@ jobs:
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
           AMI_ID: ${{ secrets.AMI_ID_AWS }}
+          ELASTIC_IP: ${{ env.ELASTIC_IP }}
         run: |
           set -x
           INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --associate-public-ip-address --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
@@ -282,4 +198,63 @@ jobs:
           # Verifique se a regra de saída para HTTP/HTTPS existe
           OUTBOUND_HTTP_RULE=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && (FromPort==\`80\` || FromPort==\`443\`) && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
           if [ -z "$OUTBOUND_HTTP_RULE" ]; then
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr
+            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
+            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
+          else
+            echo "Regras de saída para HTTP/HTTPS já existem."
+          fi
+
+          # Verifica a conectividade de rede
+          echo "Verificando a conectividade de rede"
+          if ping -c 4 google.com; then
+            echo "Conectividade de rede está funcionando"
+          else
+            echo "Sem conectividade de rede. Verifique as regras de segurança e a configuração da VPC."
+            exit 1
+          fi
+
+          # Crie um arquivo de script remoto
+          cat <<'EOF' > deploy_script.sh
+          sudo pkill -f yum || true
+          sudo pkill -f apt-get || true
+          sudo pkill -9 -f yum || true
+          sudo pkill -9 -f apt-get || true
+          sudo killall -9 yum || true
+          sudo killall -9 apt-get || true
+
+          sudo yum clean all
+          sudo yum makecache
+
+          echo "Atualizando pacotes e instalando dependências"
+          timeout 5m sudo yum update -y
+          timeout 5m sudo yum install -y python3 tmux
+          
+          echo "Instalando bibliotecas Python"
+          sudo pip3 install --upgrade pip
+          sudo pip3 install -r /home/ec2-user/liveness_detection/requirements.txt
+
+          # Verifica se o Streamlit foi instalado corretamente
+          if ! command -v streamlit &> /dev/null
+          then
+              echo "Streamlit não foi instalado corretamente"
+              exit 1
+          fi
+
+          # Inicia o Streamlit usando tmux
+          tmux new -d -s streamlit_session "streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
+          EOF
+
+          # Transfira o arquivo de script para a instância EC2
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
+
+          # Crie o diretório liveness_detection na instância EC2
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "mkdir -p /home/ec2-user/liveness_detection"
+
+          # Transfira o código da aplicação para a instância EC2
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@$INSTANCE_IP:/home/ec2-user/liveness_detection
+
+          # Execute o script na instância EC2
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh && /home/ec2-user/deploy_script.sh"
+
+          # Adicione uma regra de entrada para permitir o tráfego HTTP na porta 8080
+          aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
