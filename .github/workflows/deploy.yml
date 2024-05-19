@@ -155,7 +155,7 @@ jobs:
         run: |
           set -x  # Ativar modo de depuração
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-          if [ -z "$INSTANCE_IP" ]; then
+          if [ -z "$INSTANCE_IP" ]; então
             echo "Failed to retrieve instance IP"
             exit 1
           fi
@@ -165,7 +165,7 @@ jobs:
         env:
           INSTANCE_IP: ${{ steps.get_instance_ip.outputs.INSTANCE_IP }}
         run: |
-          # Adicionando verificação do status da porta 22
+          echo "Verificando conectividade SSH para $INSTANCE_IP na porta 22"
           for i in {1..10}; do
             nc -zv $INSTANCE_IP 22 && break
             echo "Tentativa $i: Falha ao conectar na porta 22. Aguardando 10 segundos antes de tentar novamente."
@@ -196,3 +196,4 @@ jobs:
             pkill streamlit
             nohup streamlit run app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
           EOF
+
