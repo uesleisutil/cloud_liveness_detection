@@ -29,7 +29,7 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         LAMBDA_FUNCTION_NAME: my-new-lambda-function
-        LAMBDA_ROLE_ARN: arn:aws:iam::200093399689:role/your-lambda-execution-role
+        LAMBDA_ROLE_ARN: arn:aws:iam::200093399689:role/your-lambda-execution-role  # Substitua pelo ARN do seu role
       run: |
         apt-get update && apt-get install -y zip
         zip -r function.zip .
