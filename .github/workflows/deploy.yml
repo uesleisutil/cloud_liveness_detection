@@ -53,8 +53,7 @@ jobs:
         run: |
           set -x
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
-          IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE
-          ID --query "RouteTables[0].Routes[?GatewayId=='igw-*']" --output text)
+          IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='igw-*']" --output text)
           if [ -z "$IGW_ROUTE_EXISTS" ]; then
             echo "A Subnet não está associada a uma tabela de rotas com um Gateway da Internet. Adicionando rota."
             aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
@@ -73,7 +72,7 @@ jobs:
           fi
 
           DNS_HOSTNAMES=$(aws ec2 describe-vpcs --vpc-ids $VPC_ID --query "Vpcs[0].EnableDnsHostnames" --output text)
-          if [ "$DNS_HOSTNAMES" != "true" ]; then
+          if [ "$DNS_HOSTNAMES" != "true" ]; então
             echo "Ativando hostnames DNS para a VPC."
             aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames
           else
@@ -89,7 +88,7 @@ jobs:
         run: |
           set -x
           OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
+          if [ -z "$OUTBOUND_RULE_EXISTS" ]; então
             echo "Adicionando regra de saída para permitir todas as conexões de saída."
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol -1 --port -1 --cidr 0.0.0.0/0
           else
@@ -106,7 +105,7 @@ jobs:
           set -x
           NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
           INBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`110\` && RuleAction=='allow' && Protocol=='6' && PortRange.From==\`22\` && PortRange.To==\`22\`]" --output text)
-          if [ -z "$INBOUND_ACL_RULE_EXISTS" ]; then
+          if [ -z "$INBOUND_ACL_RULE_EXISTS" ]; então
             echo "Adicionando regra de entrada na ACL de rede para permitir conexões SSH."
             aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 110 --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
           else
@@ -114,7 +113,7 @@ jobs:
           fi
 
           OUTBOUND_ACL_RULE_EXISTS=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`111\` && RuleAction=='allow' && Protocol=='6' && Egress==true]" --output text)
-          if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; then
+          if [ -z "$OUTBOUND_ACL_RULE_EXISTS" ]; então
             echo "Adicionando regra de saída na ACL de rede para permitir todas as conexões de saída."
             aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 111 --protocol tcp --port-range From=0,To=65535 --egress --rule-action allow --cidr-block 0.0.0.0/0
           else
@@ -146,7 +145,7 @@ jobs:
         run: |
           set -x
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-          if [ -z "$INSTANCE_IP" ]; then
+          if [ -z "$INSTANCE_IP" ]; então
             echo "Failed to retrieve instance IP"
             exit 1
           fi
@@ -185,4 +184,3 @@ jobs:
             pkill streamlit || true
             nohup streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
           EOF
-
