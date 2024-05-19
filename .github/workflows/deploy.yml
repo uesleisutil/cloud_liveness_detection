@@ -70,18 +70,6 @@ jobs:
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
         run: |
-          # Create user-data script
-          cat << 'EOF' > ec2-user-data.sh
-          #!/bin/bash
-          sudo yum update -y
-          sudo yum install -y python3 git
-          sudo pip3 install --upgrade pip
-          sudo pip3 install boto3 opencv-python-headless python-dotenv streamlit fastapi uvicorn
-          git clone https://github.com/uesleisutil/liveness_detection.git /home/ec2-user/liveness_detection
-          cd /home/ec2-user/liveness_detection
-          nohup streamlit run app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
-EOF
-
           # Run EC2 instance with user-data script
           INSTANCE_ID=$(aws ec2 run-instances --image-id ami-0c55b159cbfafe1f0 --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
 
