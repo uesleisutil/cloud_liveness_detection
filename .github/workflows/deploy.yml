@@ -54,7 +54,7 @@ jobs:
         run: |
           set -x  # Ativar modo de depuração
           # Verificar se a regra de segurança já existe
-          RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==`22` && ToPort==`22` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+          RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
           if [ -z "$RULE_EXISTS" ]; then
             # Adicionar a regra de segurança para permitir conexões SSH na porta 22
             aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
@@ -91,7 +91,6 @@ jobs:
           # Escreva a chave privada em um arquivo temporário
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
-          # Espera adicional para garantir que a instância esteja totalmente inicializada
           chmod +x deploy_streamlit.sh
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP << 'EOF'
             cd /home/ec2-user/liveness_detection
