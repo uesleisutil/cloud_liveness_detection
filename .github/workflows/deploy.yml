@@ -51,14 +51,15 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
+          INTERNET_GATEWAY_ID: ${{ secrets.INTERNET_GATEWAY_ID }}
         run: |
           set -x  # Ativar modo de depuração
           # Verificar se a Subnet está associada a uma tabela de rotas com um Gateway da Internet
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
           IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='igw-*']" --output text)
           if [ -z "$IGW_ROUTE_EXISTS" ]; then
-            echo "A Subnet não está associada a uma tabela de rotas com um Gateway da Internet. Configuração necessária."
-            exit 1
+            echo "A Subnet não está associada a uma tabela de rotas com um Gateway da Internet. Adicionando rota."
+            aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
           else
             echo "A Subnet está corretamente configurada."
           fi
