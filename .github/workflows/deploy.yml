@@ -64,6 +64,24 @@ jobs:
             echo "A Subnet está corretamente configurada."
           fi
 
+          # Verificar se a resolução de DNS está habilitada
+          DNS_RESOLUTION=$(aws ec2 describe-vpcs --vpc-ids $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --query "Vpcs[0].EnableDnsSupport" --output text)
+          if [ "$DNS_RESOLUTION" != "true" ]; then
+            echo "Ativando resolução de DNS para a VPC."
+            aws ec2 modify-vpc-attribute --vpc-id $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --enable-dns-support
+          else
+            echo "Resolução de DNS já está ativada."
+          fi
+
+          # Verificar se o host DNS está habilitado
+          DNS_HOSTNAMES=$(aws ec2 describe-vpcs --vpc-ids $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --query "Vpcs[0].EnableDnsHostnames" --output text)
+          if [ "$DNS_HOSTNAMES" != "true" ]; then
+            echo "Ativando hostnames DNS para a VPC."
+            aws ec2 modify-vpc-attribute --vpc-id $(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text) --enable-dns-hostnames
+          else
+            echo "Hostnames DNS já estão ativados."
+          fi
+
       - name: Create EC2 Instance
         id: create_ec2
         env:
@@ -80,8 +98,6 @@ jobs:
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           # Wait for the instance to be running
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-          # Espera adicional para garantir que a instância esteja totalmente inicializada
-          sleep 120
 
       - name: Get instance IP
         id: get_instance_ip
@@ -112,8 +128,6 @@ jobs:
           # Escreva a chave privada em um arquivo temporário
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
-          # Verificação adicional de conectividade
-          sleep 120
           nc -zv $INSTANCE_IP 22
           if [ $? -ne 0 ]; then
             echo "Failed to connect to instance on port 22"
