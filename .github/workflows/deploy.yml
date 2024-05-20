@@ -285,15 +285,6 @@ jobs:
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
           fi
 
-          # Verifica a conectividade de rede
-          echo "Verificando a conectividade de rede"
-          if ping -c 4 google.com; then
-            echo "Conectividade de rede está funcionando"
-          else
-            echo "Sem conectividade de rede. Verifique as regras de segurança e a configuração da VPC."
-            exit 1
-          fi
-
           # Crie um arquivo de script remoto
           cat <<'EOF' > deploy_script.sh
           sudo pkill -f yum || true
