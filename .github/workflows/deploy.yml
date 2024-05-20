@@ -300,6 +300,7 @@ jobs:
           timeout 5m sudo yum install -y python3 tmux python3-pip
       
           # Install other required packages
+          sudo pip3 install --upgrade requests
           sudo pip3 install -r /home/ec2-user/liveness_detection/requirements.txt
       
           # Adicione o caminho do Streamlit ao PATH
