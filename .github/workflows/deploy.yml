@@ -26,7 +26,7 @@ jobs:
         run: |
           set -x
           INSTANCE_IDS=$(aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId' --output text)
-          if [ -n "$INSTANCE_IDS" ]; então
+          if [ -n "$INSTANCE_IDS" ]; then
             aws ec2 stop-instances --instance-ids $INSTANCE_IDS --output text
             echo "Stopped instances: $INSTANCE_IDS"
           else
@@ -43,11 +43,11 @@ jobs:
           set -x
           NAT_ALLOCATION_ID=$(aws ec2 describe-addresses --query "Addresses[?PublicIp=='${NAT_GATEWAY_ELASTIC_IP}'].AllocationId" --output text)
           ELASTIC_IP_ALLOCATION_IDS=$(aws ec2 describe-addresses --query "Addresses[?PublicIp!='${NAT_GATEWAY_ELASTIC_IP}'].AllocationId" --output text)
-          if [ -n "$ELASTIC_IP_ALLOCATION_IDS" ]; então
+          if [ -n "$ELASTIC_IP_ALLOCATION_IDS" ]; then
             for allocation_id in $ELASTIC_IP_ALLOCATION_IDS; do
-              if [ "$allocation_id" != "$NAT_ALLOCATION_ID" ]; então
+              if [ "$allocation_id" != "$NAT_ALLOCATION_ID" ]; then
                 aws ec2 release-address --allocation-id $allocation_id
-                if [ $? -eq 0 ]; então
+                if [ $? -eq 0 ]; then
                   echo "Released Elastic IP with Allocation ID: $allocation_id"
                 else
                   echo "Failed to release Elastic IP with Allocation ID: $allocation_id"
@@ -80,24 +80,24 @@ jobs:
         run: |
           set -x
           INBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`1024\` && ToPort==\`65535\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -n "$INBOUND_RULE_EXISTS" ]; então
+          if [ -n "$INBOUND_RULE_EXISTS" ]; then
             aws ec2 revoke-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 1024-65535 --cidr 0.0.0.0/0
           fi
           aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 1024-65535 --cidr 0.0.0.0/0
 
           SSH_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -n "$SSH_RULE_EXISTS" ]; então
+          if [ -n "$SSH_RULE_EXISTS" ]; then
             aws ec2 revoke-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
           fi
           aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
 
           OUTBOUND_DNS_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='udp' && FromPort==\`53\` && ToPort==\`53\` && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_DNS_RULE_EXISTS" ]; então
+          if [ -z "$OUTBOUND_DNS_RULE_EXISTS" ]; then
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol udp --port 53 --cidr 0.0.0.0/0
           fi
 
           OUTBOUND_HTTP_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && (FromPort==\`80\` || FromPort==\`443\`) && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_HTTP_RULE_EXISTS" ]; então
+          if [ -z "$OUTBOUND_HTTP_RULE_EXISTS" ]; then
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
           fi
@@ -113,12 +113,12 @@ jobs:
           VPC_ID=$(aws ec2 describe-subnets --subnet-ids $SUBNET_ID --query "Subnets[0].VpcId" --output text)
 
           DNS_SUPPORT=$(aws ec2 describe-vpc-attribute --vpc-id $VPC_ID --attribute enableDnsSupport --query "EnableDnsSupport.Value" --output text)
-          if [ "$DNS_SUPPORT" != "true" ]; então
+          if [ "$DNS_SUPPORT" != "true" ]; then
             aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-support "{\"Value\":true}"
           fi
 
           DNS_HOSTNAMES=$(aws ec2 describe-vpc-attribute --vpc-id $VPC_ID --attribute enableDnsHostnames --query "EnableDnsHostnames.Value" --output text)
-          if [ "$DNS_HOSTNAMES" != "true" ]; então
+          if [ "$DNS_HOSTNAMES" != "true" ]; then
             aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames "{\"Value\":true}"
           fi
 
@@ -134,16 +134,16 @@ jobs:
         run: |
           set -x
           ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
-          if [ -n "$NAT_GATEWAY_ID" ]; então
+          if [ -n "$NAT_GATEWAY_ID" ]; then
             NAT_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?NatGatewayId=='$NAT_GATEWAY_ID']" --output text)
-            if [ -z "$NAT_ROUTE_EXISTS" ]; então
+            if [ -z "$NAT_ROUTE_EXISTS" ]; then
               aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --nat-gateway-id $NAT_GATEWAY_ID
             else
               echo "A rota NAT já está configurada."
             fi
           else
             IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='$INTERNET_GATEWAY_ID']" --output text)
-            if [ -z "$IGW_ROUTE_EXISTS" ]; então
+            if [ -z "$IGW_ROUTE_EXISTS" ]; then
               aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
             else
               echo "A rota para o gateway de Internet já está configurada."
@@ -152,7 +152,7 @@ jobs:
 
           # Check and update S3 endpoint policy
           S3_ENDPOINT_ID=$(aws ec2 describe-vpc-endpoints --filters "Name=service-name,Values=com.amazonaws.${{ secrets.AWS_DEFAULT_REGION }}.s3" --query "VpcEndpoints[?VpcId=='$VPC_ID'].VpcEndpointId" --output text)
-          if [ -n "$S3_ENDPOINT_ID" ]; então
+          if [ -n "$S3_ENDPOINT_ID" ]; then
             echo "Updating S3 endpoint policy for VPC Endpoint ID: $S3_ENDPOINT_ID"
             aws ec2 modify-vpc-endpoint --vpc-endpoint-id $S3_ENDPOINT_ID --policy-document '{
               "Statement": [
@@ -190,7 +190,7 @@ jobs:
             NEW_RULE_NUMBER=$((NEW_RULE_NUMBER+1))
           done
 
-          if [[ " $EXISTING_RULES " == *" 100 "* ]]; então
+          if [[ " $EXISTING_RULES " == *" 100 "* ]]; then
             echo "Existing rule 100 found, changing to rule number $NEW_RULE_NUMBER"
             aws ec2 delete-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --ingress || echo "No ingress entry with number 100"
             aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number $NEW_RULE_NUMBER --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
@@ -219,7 +219,7 @@ jobs:
           # Ensure outbound access for the instance
           INSTANCE_SECURITY_GROUP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].SecurityGroups[0].GroupId" --output text)
           OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $INSTANCE_SECURITY_GROUP --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_RULE_EXISTS" ]; então
+          if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
             aws ec2 authorize-security-group-egress --group-id $INSTANCE_SECURITY_GROUP --protocol -1 --port -1 --cidr 0.0.0.0/0
           else
             echo "Outbound rules already configured."
@@ -246,7 +246,7 @@ jobs:
         run: |
           set -x
           INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-          if [ -z "$INSTANCE_IP" ]; então
+          if [ -z "$INSTANCE_IP" ]; then
             echo "Failed to retrieve instance IP"
             exit 1
           fi
@@ -263,7 +263,7 @@ jobs:
             sleep 10
           done
 
-      - name: Deploy Streamlit App
+        - name: Deploy Streamlit App
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -280,7 +280,7 @@ jobs:
 
           # Verifique se a regra de saída para HTTP/HTTPS existe
           OUTBOUND_HTTP_RULE=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && (FromPort==\`80\` || FromPort==\`443\`) && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_HTTP_RULE" ]; então
+          if [ -z "$OUTBOUND_HTTP_RULE" ]; then
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
           fi
@@ -306,10 +306,13 @@ jobs:
 
           # Verifica se o Streamlit foi instalado corretamente
           if ! command -v streamlit &> /dev/null
-          então
+          then
               echo "Streamlit não foi instalado corretamente"
               exit 1
           fi
+
+          # Adicione o caminho do Streamlit ao PATH
+          export PATH=$PATH:/usr/local/bin/
 
           # Inicia o Streamlit usando tmux
           tmux new -d -s streamlit_session "streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
@@ -329,6 +332,6 @@ jobs:
 
           # Adicione uma regra de entrada para permitir o tráfego HTTP na porta 8080
           HTTP_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`8080\` && ToPort==\`8080\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$HTTP_RULE_EXISTS" ]; então
+          if [ -z "$HTTP_RULE_EXISTS" ]; then
             aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
           fi

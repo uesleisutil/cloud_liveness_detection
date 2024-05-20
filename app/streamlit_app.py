@@ -94,21 +94,23 @@ def main():
             color: #007bff;
             font-size: 32px;
             font-weight: bold;
+            margin-bottom: 20px;
         }
         .subheader {
             text-align: center;
             color: #333;
             font-size: 18px;
+            margin-bottom: 20px;
         }
         .captured-images {
             display: flex;
             justify-content: center;
             flex-wrap: wrap;
             gap: 10px;
+            margin-bottom: 20px;
         }
         .captured-images img {
-            margin: 5px;
-            width: 120px;  /* Ajuste o tamanho das imagens */
+            width: 200px; /* Ajuste o tamanho das imagens */
             height: auto;
             border-radius: 10px;
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
@@ -117,11 +119,13 @@ def main():
             color: red;
             font-weight: bold;
             text-align: center;
+            margin-bottom: 20px;
         }
         .success-message {
             color: green;
             font-weight: bold;
             text-align: center;
+            margin-bottom: 20px;
         }
         </style>
         """, 
