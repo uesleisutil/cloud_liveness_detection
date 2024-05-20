@@ -1,21 +1,16 @@
 import boto3
 import os
-import uuid
-import cv2
-import numpy as np
+from dotenv import load_dotenv
 
-def load_env():
-    from dotenv import load_dotenv
-    load_dotenv()
+load_dotenv()
 
-# Load environment variables
-load_env()
-
-# Environment variables
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 REGION_NAME = os.getenv('AWS_REGION')
 BUCKET_NAME = os.getenv('S3_BUCKET')
+
+if not REGION_NAME:
+    raise ValueError("AWS_REGION environment variable not set")
 
 rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
@@ -48,15 +43,6 @@ def detect_faces(filename):
     except Exception as e:
         print(f"Error detecting faces: {e}")
         return None
-
-def is_liveness_detected(face_details):
-    if 'Confidence' in face_details and face_details['Confidence'] >= 99.0:
-        if 'EyesOpen' in face_details and face_details['EyesOpen']['Value'] and face_details['EyesOpen']['Confidence'] >= 90:
-            if 'MouthOpen' in face_details and not face_details['MouthOpen']['Value'] and face_details['MouthOpen']['Confidence'] >= 90:
-                if 'Smile' in face_details and not face_details['Smile']['Value'] and face_details['Smile']['Confidence'] >= 90:
-                    if 'Sunglasses' in face_details and not face_details['Sunglasses']['Value'] and face_details['Sunglasses']['Confidence'] >= 90:
-                        return True
-    return False
 
 def analyze_movement(images):
     if len(images) < 2:
