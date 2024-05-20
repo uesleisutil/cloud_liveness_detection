@@ -263,7 +263,7 @@ jobs:
             sleep 10
           done
 
-        - name: Deploy Streamlit App
+      - name: Deploy Streamlit App
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
