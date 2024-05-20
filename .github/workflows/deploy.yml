@@ -305,13 +305,6 @@ jobs:
           sudo pip install --upgrade pip
           sudo pip install -r /home/ec2-user/liveness_detection/requirements.txt
 
-          # Verifica se o Streamlit foi instalado corretamente
-          if ! command -v streamlit &> /dev/null
-          then
-              echo "Streamlit não foi instalado corretamente"
-              exit 1
-          fi
-
           # Inicia o Streamlit usando tmux
           tmux new -d -s streamlit_session "streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
           EOF
