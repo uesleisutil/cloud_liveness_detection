@@ -174,6 +174,27 @@ jobs:
             echo "No S3 endpoint found in the VPC."
           fi
 
+      - name: Configure Network ACL
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          SUBNET_ID: ${{ secrets.SUBNET_ID }}
+        run: |
+          set -x
+          NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
+
+          EXISTING_RULE_100=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[?RuleNumber==\`100\`].RuleNumber" --output text)
+          if [ -n "$EXISTING_RULE_100" ]; then
+            NEW_RULE_NUMBER=101
+            echo "Existing rule 100 found, changing to rule number $NEW_RULE_NUMBER"
+            aws ec2 delete-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --ingress
+            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number $NEW_RULE_NUMBER --protocol tcp --port-range From=22,To=22 --egress --rule-action allow --cidr-block 0.0.0.0/0
+          fi
+
+          echo "Adding inbound rule for ephemeral ports"
+          aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=1024,To=65535 --ingress --rule-action allow --cidr-block 0.0.0.0/0
+
       - name: Create EC2 Instance
         id: create_ec2
         env:
@@ -307,10 +328,10 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "mkdir -p /home/ec2-user/liveness_detection"
 
           # Transfira o código da aplicação para a instância EC2
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@$INSTANCE_IP:/home/ec2-user/liveness_detection
+          scp -o StrictHostKeyChecking-no -i ec2_key.pem -r * ec2-user@$INSTANCE_IP:/home/ec2-user/liveness_detection
 
           # Execute o script na instância EC2
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh && /home/ec2-user/deploy_script.sh"
+          ssh -o StrictHostKeyChecking-no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh && /home/ec2-user/deploy_script.sh"
 
           # Adicione uma regra de entrada para permitir o tráfego HTTP na porta 8080
           aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
