@@ -303,7 +303,6 @@ jobs:
           sudo yum install -y gcc gcc-c++ cmake3
           sudo yum install -y libjpeg-devel libpng-devel libtiff-devel jasper-devel
           sudo yum install -y openexr openexr-devel
-          sudo yum install -y libdc1394 libdc1394-devel
           sudo yum install -y ffmpeg ffmpeg-devel
       
           # Create a virtual environment
