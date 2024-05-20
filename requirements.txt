@@ -3,3 +3,4 @@ python-dotenv
 streamlit
 fastapi
 uvicorn
+opencv-python-headless
