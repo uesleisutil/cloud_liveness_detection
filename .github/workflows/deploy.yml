@@ -300,11 +300,10 @@ jobs:
           timeout 5m sudo yum install -y python3 tmux
       
           echo "Instalando bibliotecas Python"
-          sudo python3 -m ensurepip
-          sudo pip3 install --upgrade pip
+          sudo pip3 install 
       
           # Remove existing requests package installed by rpm
-          sudo rpm -e --nodeps python3-requests
+          #sudo rpm -e --nodeps python3-requests
       
           # Reinstall requests using pip
           sudo pip3 install requests
