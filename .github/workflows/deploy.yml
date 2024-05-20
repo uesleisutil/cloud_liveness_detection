@@ -297,10 +297,10 @@ jobs:
       
           echo "Atualizando pacotes e instalando dependências"
           timeout 5m sudo yum update -y
-          timeout 5m sudo yum install -y python3 tmux
+          timeout 5m sudo yum install -y python3 tmux python3-pip
       
           # Install other required packages
-          sudo pip install -r /home/ec2-user/liveness_detection/requirements.txt
+          sudo pip3 install -r /home/ec2-user/liveness_detection/requirements.txt
       
           # Adicione o caminho do Streamlit ao PATH
           export PATH=$PATH:/usr/local/bin/
