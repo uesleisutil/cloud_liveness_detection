@@ -300,7 +300,8 @@ jobs:
           timeout 5m sudo yum install -y python3 tmux python3-pip gtk3-devel pkg-config
           
           # Additional dependencies for OpenCV GUI support
-          sudo yum install -y epel-release
+          sudo yum install amazon-linux-extras -y
+          sudo amazon-linux-extras install epel -y
           sudo yum install -y gcc gcc-c++ cmake3
           sudo yum install -y libjpeg-devel libpng-devel libtiff-devel jasper-devel
           sudo yum install -y openexr openexr-devel
