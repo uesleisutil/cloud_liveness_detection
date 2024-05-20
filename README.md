@@ -35,6 +35,7 @@ A aplicação utiliza o OpenCV para detectar faces e determinar a vivacidade. É
 ├── ec2-user-data.sh
 ├── requirements.txt
 └── README.md
+```
 
 ## Configuração e Deploy
 
