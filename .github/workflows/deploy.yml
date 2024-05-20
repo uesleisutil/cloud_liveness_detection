@@ -320,6 +320,3 @@ jobs:
 
           # Execute o script na instância EC2
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh && /home/ec2-user/deploy_script.sh"
-
-          # Adicione uma regra de entrada para permitir o tráfego HTTP na porta 8080
-          aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
