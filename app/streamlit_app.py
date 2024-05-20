@@ -60,6 +60,25 @@ def analyze_movement(images):
     threshold = 5000  # Relaxado para reduzir falsos negativos
     return total_movement > threshold
 
+def resize_and_center_image(image_path, target_size=(400, 300)):
+    img = cv2.imread(image_path)
+    h, w = img.shape[:2]
+    target_w, target_h = target_size
+
+    scale = min(target_w / w, target_h / h)
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+
+    resized_img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    top_pad = (target_h - new_h) // 2
+    bottom_pad = target_h - new_h - top_pad
+    left_pad = (target_w - new_w) // 2
+    right_pad = target_w - new_w - left_pad
+
+    padded_img = cv2.copyMakeBorder(resized_img, top_pad, bottom_pad, left_pad, right_pad, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+    return padded_img
+
 def main():
     # Adiciona estilo customizado ao Streamlit
     st.markdown(
@@ -110,8 +129,9 @@ def main():
             margin-bottom: 20px;
         }
         .captured-images img {
-            width: 200px; /* Ajuste o tamanho das imagens */
-            height: auto;
+            width: 400px; /* Ajuste o tamanho das imagens */
+            height: 300px;
+            object-fit: cover; /* Centralizar as imagens */
             border-radius: 10px;
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
         }
@@ -146,7 +166,10 @@ def main():
             st.markdown('<div class="stMarkdown subheader">Imagens Capturadas:</div>', unsafe_allow_html=True)
             st.markdown('<div class="captured-images">', unsafe_allow_html=True)
             for img in images:
-                st.image(img, caption="Imagem Capturada", use_column_width=False)
+                resized_img = resize_and_center_image(img)
+                temp_img_path = os.path.join(tempfile.gettempdir(), f"resized_{uuid.uuid4()}.jpg")
+                cv2.imwrite(temp_img_path, resized_img)
+                st.image(temp_img_path, caption="Imagem Capturada", use_column_width=False)
             st.markdown('</div>', unsafe_allow_html=True)
 
             if not analyze_movement(images):
