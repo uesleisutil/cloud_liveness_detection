@@ -11,7 +11,7 @@ A aplicação utiliza o OpenCV para detectar faces e determinar a vivacidade. É
 
 - Captura de imagens em tempo real usando a câmera do dispositivo.
 - Upload das imagens capturadas para o AWS S3.
-- Análise de movimento e detecção de vivacidade facial usando OpenCV.
+- Análise de movimento e detecção de vivacidade facial usando AWS Rekognition.
 - Feedback em tempo real sobre a autenticidade da face capturada.
 
 ## Estrutura do Projeto
@@ -26,12 +26,9 @@ A aplicação utiliza o OpenCV para detectar faces e determinar a vivacidade. É
 │   ├── main.py
 │   ├── streamlit_app.py
 │   └── utils.py
-├── .env
 ├── .gitattributes
 ├── .gitignore
-├── deploy_streamlit.sh
 ├── Dockerfile
-├── ec2-user-data.sh
 ├── requirements.txt
 └── README.md
 ```
@@ -40,7 +37,7 @@ A aplicação utiliza o OpenCV para detectar faces e determinar a vivacidade. É
 
 ### Pré-requisitos
 
-- Conta AWS com permissões para EC2, S3 e VPC.
+- Conta AWS com permissões para EC2, S3 e VPC e Rekognition.
 - Chaves de acesso AWS configuradas.
 - Python 3.8 ou superior.
 
@@ -61,13 +58,21 @@ Atualize o arquivo .github/workflows/deploy.yml com as variáveis necessárias n
 
 ## Uso
 
+### Componentes
+
+- **Aplicativo Streamlit**: fornece uma interface web para capturar imagens e exibir resultados.
+- **FastAPI**: fornece endpoints de API REST para detecção facial.
+- **AWS Rekognition**: analisa as imagens para detecção facial e vivacidade.
+
 ### Aplicativo Streamlit
 - Acesse a interface do Streamlit no navegador.
 - Clique em "Capturar Imagem" para iniciar a captura de imagens.
 - As imagens capturadas serão exibidas na tela.
 - O sistema irá verificar a vivacidade e fornecer um feedback.
+- Acesse a interface da web Streamlit em http://<EC2_IP>:8080.
 
 ## API FastAPI
 - A API está configurada para lidar com uploads de imagens e análise de vivacidade.
 - Endpoint principal: /upload/
 - Para fazer uma requisição, envie um POST request com o arquivo da imagem.
+- Endpoints FastAPI: acesse os endpoints FastAPI em http://<EC2_IP>:8000.
