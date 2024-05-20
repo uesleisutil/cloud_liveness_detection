@@ -4,13 +4,16 @@ import os
 import tempfile
 import uuid
 import numpy as np
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from app.utils import upload_to_s3, detect_faces, clear_s3_bucket, analyze_movement
 
 def capture_images(num_images=10, delay=0.2, initial_delay=1):
     cap = cv2.VideoCapture(0)
     images = []
     tempdirs = []
 
-    # Adiciona um atraso inicial para permitir que a câmera se ajuste
     cv2.waitKey(initial_delay * 1000)
 
     for _ in range(num_images):
@@ -28,30 +31,6 @@ def capture_images(num_images=10, delay=0.2, initial_delay=1):
 
     cap.release()
     return images, tempdirs
-
-def detect_faces_opencv(image_path):
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    img = cv2.imread(image_path)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-    return faces
-
-def analyze_movement(images):
-    if len(images) < 2:
-        return False
-
-    total_movement = 0
-    for i in range(len(images) - 1):
-        img1 = cv2.imread(images[i], cv2.IMREAD_GRAYSCALE)
-        img2 = cv2.imread(images[i + 1], cv2.IMREAD_GRAYSCALE)
-
-        diff = cv2.absdiff(img1, img2)
-        non_zero_count = np.count_nonzero(diff)
-        total_movement += non_zero_count
-
-    # Ajustar o limite de mudança aceitável
-    threshold = 5000  # Relaxado para reduzir falsos negativos
-    return total_movement > threshold
 
 def resize_and_center_image(image_path, target_size=(400, 300)):
     img = cv2.imread(image_path)
@@ -73,7 +52,6 @@ def resize_and_center_image(image_path, target_size=(400, 300)):
     return padded_img
 
 def main():
-    # Adiciona estilo customizado ao Streamlit
     st.markdown(
         """
         <style>
@@ -122,9 +100,9 @@ def main():
             margin-bottom: 20px;
         }
         .captured-images img {
-            width: 400px; /* Ajuste o tamanho das imagens */
+            width: 400px;
             height: 300px;
-            object-fit: cover; /* Centralizar as imagens */
+            object-fit: cover;
             border-radius: 10px;
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
         }
@@ -145,16 +123,15 @@ def main():
         unsafe_allow_html=True
     )
 
-    # Cabeçalho e título do aplicativo
     st.markdown('<div class="stMarkdown header">Quantum Finance</div>', unsafe_allow_html=True)
     st.markdown('<div class="stMarkdown subheader">Detecção de Vivacidade Facial</div>', unsafe_allow_html=True)
     st.markdown('<div class="stMarkdown subheader">Clique no botão abaixo para capturar imagens e verificar a vivacidade.</div>', unsafe_allow_html=True)
     
     if st.button("Capturar Imagem"):
         try:
-            images, tempdirs = capture_images(initial_delay=1)  # Adicionar o atraso inicial
+            clear_s3_bucket()
+            images, tempdirs = capture_images(initial_delay=1)
             
-            # Exibir imagens capturadas
             st.markdown('<div class="stMarkdown subheader">Imagens Capturadas:</div>', unsafe_allow_html=True)
             st.markdown('<div class="captured-images">', unsafe_allow_html=True)
             for img in images:
@@ -168,18 +145,34 @@ def main():
                 st.markdown('<div class="stMarkdown error-message">Vivacidade não detectada. Por favor, mova sua cabeça.</div>', unsafe_allow_html=True)
                 return
 
-            faces_detected = False
+            s3_filenames = []
             for img in images:
-                faces = detect_faces_opencv(img)
-                if len(faces) > 0:
-                    st.markdown('<div class="stMarkdown success-message">Face detectada com sucesso!</div>', unsafe_allow_html=True)
-                    faces_detected = True
+                s3_filename = upload_to_s3(img)
+                if not s3_filename:
+                    st.markdown('<div class="stMarkdown error-message">Falha ao carregar imagem no S3.</div>', unsafe_allow_html=True)
+                    raise ValueError("Failed to upload image to S3")
+                s3_filenames.append(s3_filename)
+
+            st.markdown('<div class="stMarkdown subheader">Imagens carregadas no S3</div>', unsafe_allow_html=True)
+
+            response = detect_faces(s3_filenames[0])
+            if not response:
+                st.markdown('<div class="stMarkdown error-message">Falha na detecção de faces.</div>', unsafe_allow_html=True)
+                raise ValueError("Failed to detect faces")
+
+            st.markdown('<div class="stMarkdown subheader">Detecção de faces realizada</div>', unsafe_allow_html=True)
+
+            face_detected = False
+            for faceDetail in response['FaceDetails']:
+                if is_liveness_detected(faceDetail):
+                    confidence = faceDetail['Confidence']
+                    st.markdown(f'<div class="stMarkdown success-message">Confiança na vivacidade: {confidence:.2f}%</div>', unsafe_allow_html=True)
+                    face_detected = True
                     break
 
-            if not faces_detected:
+            if not face_detected:
                 st.markdown('<div class="stMarkdown error-message">Nenhuma face detectada ou critérios de vivacidade não atendidos.</div>', unsafe_allow_html=True)
 
-            # Remover arquivos temporários
             for img in images:
                 os.remove(img)
             for tempdir in tempdirs:

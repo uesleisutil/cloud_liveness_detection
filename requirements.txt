@@ -1,7 +1,5 @@
 boto3
-opencv-python-headless
 python-dotenv
 streamlit
 fastapi
 uvicorn
-mangum

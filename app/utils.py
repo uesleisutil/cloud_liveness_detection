@@ -1,17 +1,17 @@
 import boto3
 import os
 import uuid
-import numpy as np
 import cv2
+import numpy as np
 
 def load_env():
     from dotenv import load_dotenv
     load_dotenv()
 
-# Carregar variáveis de ambiente
+# Load environment variables
 load_env()
 
-# Variáveis de ambiente
+# Environment variables
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 REGION_NAME = os.getenv('AWS_REGION')
@@ -50,7 +50,6 @@ def detect_faces(filename):
         return None
 
 def is_liveness_detected(face_details):
-    # Critérios rigorosos para detecção de vivacidade
     if 'Confidence' in face_details and face_details['Confidence'] >= 99.0:
         if 'EyesOpen' in face_details and face_details['EyesOpen']['Value'] and face_details['EyesOpen']['Confidence'] >= 90:
             if 'MouthOpen' in face_details and not face_details['MouthOpen']['Value'] and face_details['MouthOpen']['Confidence'] >= 90:
@@ -60,7 +59,6 @@ def is_liveness_detected(face_details):
     return False
 
 def analyze_movement(images):
-    # Simples análise de movimento
     if len(images) < 2:
         return False
 
@@ -70,6 +68,5 @@ def analyze_movement(images):
     diff = cv2.absdiff(img1, img2)
     non_zero_count = np.count_nonzero(diff)
 
-    # Definir um limite de mudança aceitável
     threshold = 5000
     return non_zero_count > threshold
