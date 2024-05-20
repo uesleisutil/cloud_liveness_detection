@@ -56,3 +56,4 @@ def analyze_movement(images):
 
     threshold = 5000
     return non_zero_count > threshold
+
