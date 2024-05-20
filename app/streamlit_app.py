@@ -108,7 +108,7 @@ def main():
         }
         .captured-images img {
             margin: 5px;
-            width: 180px;
+            width: 120px;  /* Ajuste o tamanho das imagens */
             height: auto;
             border-radius: 10px;
             box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
