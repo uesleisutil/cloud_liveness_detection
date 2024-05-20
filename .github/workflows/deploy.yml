@@ -299,24 +299,8 @@ jobs:
           timeout 5m sudo yum update -y
           timeout 5m sudo yum install -y python3 tmux
       
-          echo "Instalando bibliotecas Python"
-          sudo pip3 install 
-      
-          # Remove existing requests package installed by rpm
-          #sudo rpm -e --nodeps python3-requests
-      
-          # Reinstall requests using pip
-          sudo pip3 install requests
-      
           # Install other required packages
-          sudo pip3 install -r /home/ec2-user/liveness_detection/requirements.txt
-      
-          # Verifica se o Streamlit foi instalado corretamente
-          if ! command -v streamlit &> /dev/null
-          then
-              echo "Streamlit não foi instalado corretamente"
-              exit 1
-          fi
+          sudo pip install -r /home/ec2-user/liveness_detection/requirements.txt
       
           # Adicione o caminho do Streamlit ao PATH
           export PATH=$PATH:/usr/local/bin/
