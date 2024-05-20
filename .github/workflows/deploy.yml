@@ -299,15 +299,20 @@ jobs:
           timeout 5m sudo yum update -y
           timeout 5m sudo yum install -y python3 tmux python3-pip
       
-          # Install other required packages
-          sudo pip3 install --upgrade requests
-          sudo pip3 install -r /home/ec2-user/liveness_detection/requirements.txt
+          # Create a virtual environment
+          python3 -m venv venv
+
+          # Activate the virtual environment
+          source venv/bin/activate
+      
+          # Install the required packages in the virtual environment
+          pip install -r /home/ec2-user/liveness_detection/requirements.txt
       
           # Adicione o caminho do Streamlit ao PATH
           export PATH=$PATH:/usr/local/bin/
       
           # Inicia o Streamlit usando tmux
-          tmux new -d -s streamlit_session "streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
+          tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
           EOF
       
           # Transfer the script to the EC2 instance
@@ -316,7 +321,7 @@ jobs:
           # Set executable permissions for the script
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh"
       
-          # Create the liveness_detection directory on the EC2 instance
+          # Create the liveness_detection directory on the EC2 instance with appropriate permissions
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "sudo mkdir -p /home/ec2-user/liveness_detection && sudo chown -R ec2-user:ec2-user /home/ec2-user/liveness_detection"
       
           # Transfer the application code to the EC2 instance
@@ -331,4 +336,3 @@ jobs:
             aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
           fi
         shell: /usr/bin/bash -e {0}
-      
