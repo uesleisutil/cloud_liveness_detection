@@ -290,6 +290,18 @@ jobs:
           sudo pkill -9 -f apt-get || true
           sudo killall -9 yum || true
           sudo killall -9 apt-get || true
+          
+          # Install FFmpeg from source
+          echo "Instalando FFmpeg a partir do código fonte"
+          sudo yum install -y autoconf automake cmake freetype-devel gcc gcc-c++ git libtool make nasm pkgconfig zlib-devel
+          mkdir -p ~/ffmpeg_sources ~/bin
+          cd ~/ffmpeg_sources
+          git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg
+          cd ffmpeg
+          ./configure --prefix="$HOME/bin" --pkg-config-flags="--static" --extra-cflags="-I$HOME/bin/include" --extra-ldflags="-L$HOME/bin/lib" --extra-libs="-lpthread -lm" --bindir="$HOME/bin"
+          make -j$(nproc)
+          make install
+          hash -r
       
           # Clean and update package cache
           sudo yum clean all
