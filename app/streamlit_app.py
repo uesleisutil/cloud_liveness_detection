@@ -4,10 +4,6 @@ import os
 import tempfile
 import uuid
 import numpy as np
-import sys
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from app.utils import upload_to_s3, detect_faces, clear_s3_bucket
 
 def capture_images(num_images=10, delay=0.2, initial_delay=1):
     cap = cv2.VideoCapture(0)
@@ -33,15 +29,12 @@ def capture_images(num_images=10, delay=0.2, initial_delay=1):
     cap.release()
     return images, tempdirs
 
-def is_liveness_detected(face_details):
-    # Critérios rigorosos para detecção de vivacidade
-    if 'Confidence' in face_details and face_details['Confidence'] >= 99.0:
-        if 'EyesOpen' in face_details and face_details['EyesOpen']['Value'] and face_details['EyesOpen']['Confidence'] >= 90:
-            if 'MouthOpen' in face_details and not face_details['MouthOpen']['Value'] and face_details['MouthOpen']['Confidence'] >= 90:
-                if 'Smile' in face_details and not face_details['Smile']['Value'] and face_details['Smile']['Confidence'] >= 90:
-                    if 'Sunglasses' in face_details and not face_details['Sunglasses']['Value'] and face_details['Sunglasses']['Confidence'] >= 90:
-                        return True
-    return False
+def detect_faces_opencv(image_path):
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    img = cv2.imread(image_path)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+    return faces
 
 def analyze_movement(images):
     if len(images) < 2:
@@ -159,7 +152,6 @@ def main():
     
     if st.button("Capturar Imagem"):
         try:
-            clear_s3_bucket()  # Excluir todas as imagens do S3
             images, tempdirs = capture_images(initial_delay=1)  # Adicionar o atraso inicial
             
             # Exibir imagens capturadas
@@ -176,32 +168,15 @@ def main():
                 st.markdown('<div class="stMarkdown error-message">Vivacidade não detectada. Por favor, mova sua cabeça.</div>', unsafe_allow_html=True)
                 return
 
-            s3_filenames = []
+            faces_detected = False
             for img in images:
-                s3_filename = upload_to_s3(img)
-                if not s3_filename:
-                    st.markdown('<div class="stMarkdown error-message">Falha ao carregar imagem no S3.</div>', unsafe_allow_html=True)
-                    raise ValueError("Failed to upload image to S3")
-                s3_filenames.append(s3_filename)
-
-            st.markdown('<div class="stMarkdown subheader">Imagens carregadas no S3</div>', unsafe_allow_html=True)
-
-            response = detect_faces(s3_filenames[0])  # Usar a primeira imagem para detecção de faces
-            if not response:
-                st.markdown('<div class="stMarkdown error-message">Falha na detecção de faces.</div>', unsafe_allow_html=True)
-                raise ValueError("Failed to detect faces")
-
-            st.markdown('<div class="stMarkdown subheader">Detecção de faces realizada</div>', unsafe_allow_html=True)
-
-            face_detected = False
-            for faceDetail in response['FaceDetails']:
-                if is_liveness_detected(faceDetail):  # Verificar liveness
-                    confidence = faceDetail['Confidence']
-                    st.markdown(f'<div class="stMarkdown success-message">Confiança na vivacidade: {confidence:.2f}%</div>', unsafe_allow_html=True)
-                    face_detected = True
+                faces = detect_faces_opencv(img)
+                if len(faces) > 0:
+                    st.markdown('<div class="stMarkdown success-message">Face detectada com sucesso!</div>', unsafe_allow_html=True)
+                    faces_detected = True
                     break
 
-            if not face_detected:
+            if not faces_detected:
                 st.markdown('<div class="stMarkdown error-message">Nenhuma face detectada ou critérios de vivacidade não atendidos.</div>', unsafe_allow_html=True)
 
             # Remover arquivos temporários
