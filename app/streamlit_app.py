@@ -60,41 +60,20 @@ def analyze_movement(images):
     threshold = 5000  # Relaxado para reduzir falsos negativos
     return total_movement > threshold
 
-def detect_blinking(images):
-    eye_statuses = []
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
-
-    for image_path in images:
-        img = cv2.imread(image_path)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        detected_faces = face_cascade.detectMultiScale(gray, 1.3, 5)
-        eyes_detected = False
-        for (x, y, w, h) in detected_faces:
-            roi_gray = gray[y:y + h, x:x + w]
-            detected_eyes = eye_cascade.detectMultiScale(roi_gray)
-            eyes_detected = len(detected_eyes) > 0
-            eye_statuses.append(eyes_detected)
-
-    # Verificar se há alternância entre olhos abertos e fechados
-    blink_detected = any(eye_statuses[i] != eye_statuses[i + 1] for i in range(len(eye_statuses) - 1))
-    return blink_detected
-
 def main():
     # Adiciona estilo customizado ao Streamlit
     st.markdown(
         """
         <style>
         .main {
-            background-color: #f0f2f6;
+            background-color: #f5f5f5;
             font-family: 'Arial', sans-serif;
         }
         .stButton > button {
-            background-color: #4CAF50;
+            background-color: #007bff;
             color: white;
             padding: 10px 24px;
-            border-radius: 8px;
+            border-radius: 25px;
             border: none;
             font-size: 16px;
             font-weight: bold;
@@ -102,31 +81,47 @@ def main():
             margin: 0 auto;
         }
         .stButton > button:hover {
-            background-color: #45a049;
+            background-color: #0056b3;
         }
         .stMarkdown {
-            background-color: white;
-            border-radius: 8px;
+            background-color: #ffffff;
+            border-radius: 10px;
             padding: 20px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
         }
         .header {
             text-align: center;
-            color: #4CAF50;
+            color: #007bff;
+            font-size: 32px;
+            font-weight: bold;
         }
         .subheader {
             text-align: center;
-            color: #000;
+            color: #333;
+            font-size: 18px;
         }
         .captured-images {
             display: flex;
             justify-content: center;
             flex-wrap: wrap;
+            gap: 10px;
         }
         .captured-images img {
             margin: 5px;
-            width: 300px;  /* Aumentado o tamanho das imagens */
+            width: 180px;
             height: auto;
+            border-radius: 10px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .error-message {
+            color: red;
+            font-weight: bold;
+            text-align: center;
+        }
+        .success-message {
+            color: green;
+            font-weight: bold;
+            text-align: center;
         }
         </style>
         """, 
@@ -134,9 +129,9 @@ def main():
     )
 
     # Cabeçalho e título do aplicativo
-    st.markdown('<div class="stMarkdown header"><h1>Quantum Finance</h1></div>', unsafe_allow_html=True)
-    st.markdown('<div class="stMarkdown subheader"><h4>Detecção de Vivacidade Facial</h4></div>', unsafe_allow_html=True)
-    st.markdown('<div class="stMarkdown subheader"><p>Clique no botão abaixo para capturar imagens e verificar a vivacidade.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="stMarkdown header">Quantum Finance</div>', unsafe_allow_html=True)
+    st.markdown('<div class="stMarkdown subheader">Detecção de Vivacidade Facial</div>', unsafe_allow_html=True)
+    st.markdown('<div class="stMarkdown subheader">Clique no botão abaixo para capturar imagens e verificar a vivacidade.</div>', unsafe_allow_html=True)
     
     if st.button("Capturar Imagem"):
         try:
@@ -144,47 +139,43 @@ def main():
             images, tempdirs = capture_images(initial_delay=1)  # Adicionar o atraso inicial
             
             # Exibir imagens capturadas
-            st.markdown('<div class="stMarkdown subheader"><h4>Imagens Capturadas:</h4></div>', unsafe_allow_html=True)
+            st.markdown('<div class="stMarkdown subheader">Imagens Capturadas:</div>', unsafe_allow_html=True)
             st.markdown('<div class="captured-images">', unsafe_allow_html=True)
             for img in images:
                 st.image(img, caption="Imagem Capturada", use_column_width=False)
             st.markdown('</div>', unsafe_allow_html=True)
 
             if not analyze_movement(images):
-                st.markdown('<div class="stMarkdown subheader"><p style="color: red;">Vivacidade não detectada. Por favor, mova sua cabeça ou pisque.</p></div>', unsafe_allow_html=True)
-                return
-
-            if not detect_blinking(images):
-                st.markdown('<div class="stMarkdown subheader"><p style="color: red;">Vivacidade não detectada. Por favor, pisque.</p></div>', unsafe_allow_html=True)
+                st.markdown('<div class="stMarkdown error-message">Vivacidade não detectada. Por favor, mova sua cabeça.</div>', unsafe_allow_html=True)
                 return
 
             s3_filenames = []
             for img in images:
                 s3_filename = upload_to_s3(img)
                 if not s3_filename:
-                    st.markdown('<div class="stMarkdown subheader"><p style="color: red;">Falha ao carregar imagem no S3.</p></div>', unsafe_allow_html=True)
+                    st.markdown('<div class="stMarkdown error-message">Falha ao carregar imagem no S3.</div>', unsafe_allow_html=True)
                     raise ValueError("Failed to upload image to S3")
                 s3_filenames.append(s3_filename)
 
-            st.markdown('<div class="stMarkdown subheader"><p>Imagens carregadas no S3</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="stMarkdown subheader">Imagens carregadas no S3</div>', unsafe_allow_html=True)
 
             response = detect_faces(s3_filenames[0])  # Usar a primeira imagem para detecção de faces
             if not response:
-                st.markdown('<div class="stMarkdown subheader"><p style="color: red;">Falha na detecção de faces.</p></div>', unsafe_allow_html=True)
+                st.markdown('<div class="stMarkdown error-message">Falha na detecção de faces.</div>', unsafe_allow_html=True)
                 raise ValueError("Failed to detect faces")
 
-            st.markdown('<div class="stMarkdown subheader"><p>Detecção de faces realizada</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="stMarkdown subheader">Detecção de faces realizada</div>', unsafe_allow_html=True)
 
             face_detected = False
             for faceDetail in response['FaceDetails']:
                 if is_liveness_detected(faceDetail):  # Verificar liveness
                     confidence = faceDetail['Confidence']
-                    st.markdown(f'<div class="stMarkdown subheader"><p style="color: green;">Confiança na vivacidade: {confidence:.2f}%</p></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="stMarkdown success-message">Confiança na vivacidade: {confidence:.2f}%</div>', unsafe_allow_html=True)
                     face_detected = True
                     break
 
             if not face_detected:
-                st.markdown('<div class="stMarkdown subheader"><p style="color: red;">Nenhuma face detectada ou critérios de vivacidade não atendidos.</p></div>', unsafe_allow_html=True)
+                st.markdown('<div class="stMarkdown error-message">Nenhuma face detectada ou critérios de vivacidade não atendidos.</div>', unsafe_allow_html=True)
 
             # Remover arquivos temporários
             for img in images:
@@ -193,7 +184,7 @@ def main():
                 os.rmdir(tempdir)
 
         except Exception as e:
-            st.markdown(f'<div class="stMarkdown subheader"><p style="color: red;">Erro: {e}</p></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="stMarkdown error-message">Erro: {e}</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
