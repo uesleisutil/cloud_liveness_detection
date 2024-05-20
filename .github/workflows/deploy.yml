@@ -291,6 +291,12 @@ jobs:
       
           # Adicione o caminho do Streamlit ao PATH
           export PATH=$PATH:/usr/local/bin/
+
+          #Export env.
+          export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+          export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+          export AWS_REGION=${AWS_REGION}
+          export S3_BUCKET=${S3_BUCKET}
       
           # Inicia o Streamlit usando tmux
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
