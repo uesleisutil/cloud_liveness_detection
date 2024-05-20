@@ -1,6 +1,5 @@
 # Quantum Finance - Facial Liveness Detection
 
-![Quantum Finance](https://yourimageurl.com/logo.png)
 
 ## Descrição
 
