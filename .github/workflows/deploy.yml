@@ -271,7 +271,7 @@ jobs:
           EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
-          AMI_ID: ${{ secrets.AMI_ID_AWS }}
+          AMI_ID: ${{ secrets.AMI_ID }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
         run: |
@@ -346,3 +346,5 @@ jobs:
           if [ -z "$HTTP_RULE_EXISTS" ]; then
             aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
           fi
+        shell: /usr/bin/bash -e {0}
+      
