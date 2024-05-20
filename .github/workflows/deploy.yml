@@ -297,7 +297,7 @@ jobs:
       
           echo "Atualizando pacotes e instalando dependências"
           timeout 5m sudo yum update -y
-          timeout 5m sudo yum install -y python3 tmux python3-pip libgtk2.0-dev pkg-config
+          timeout 5m sudo yum install -y python3 tmux python3-pip gtk2-devel pkg-config
       
           # Create a virtual environment
           python3 -m venv venv
