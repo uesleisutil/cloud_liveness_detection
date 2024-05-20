@@ -1,3 +1,4 @@
+requests
 boto3
 opencv-python-headless
 python-dotenv
