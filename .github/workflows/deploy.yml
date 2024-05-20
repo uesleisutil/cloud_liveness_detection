@@ -267,7 +267,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
           EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
