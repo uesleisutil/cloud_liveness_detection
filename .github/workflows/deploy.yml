@@ -325,8 +325,7 @@ jobs:
       
             # Inicia o Streamlit usando tmux
             tmux new -d -s streamlit_session "streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
-            EOT
-          EOF
+            EOF
       
           # Set executable permissions for the script
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh"
