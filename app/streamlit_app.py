@@ -4,7 +4,11 @@ import os
 import tempfile
 import uuid
 import numpy as np
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from app.utils import upload_to_s3, detect_faces, clear_s3_bucket, is_liveness_detected, analyze_movement
+
 
 def capture_images(num_images=3, delay=1, initial_delay=2):
     cap = cv2.VideoCapture(0)
