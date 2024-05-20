@@ -302,6 +302,11 @@ jobs:
           make -j$(nproc)
           make install
           hash -r
+
+          # Add FFmpeg to PATH
+          export PATH=$HOME/bin:$PATH
+          echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
+
       
           # Clean and update package cache
           sudo yum clean all
@@ -315,7 +320,6 @@ jobs:
           sudo yum install -y gcc gcc-c++ cmake3
           sudo yum install -y libjpeg-devel libpng-devel libtiff-devel jasper-devel
           sudo yum install -y openexr openexr-devel
-          sudo yum install -y ffmpeg ffmpeg-devel
       
           # Create a virtual environment
           python3 -m venv venv
