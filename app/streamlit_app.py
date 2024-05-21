@@ -15,12 +15,17 @@ AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 REGION_NAME = os.getenv('AWS_REGION')
 BUCKET_NAME = os.getenv('S3_BUCKET')
 
-rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
-s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+logger.info(f"AWS_ACCESS_KEY_ID: {AWS_ACCESS_KEY_ID}")
+logger.info(f"AWS_SECRET_ACCESS_KEY: {AWS_SECRET_ACCESS_KEY}")
+logger.info(f"REGION_NAME: {REGION_NAME}")
+logger.info(f"BUCKET_NAME: {BUCKET_NAME}")
+
+rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
+s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
 
 def clear_s3_bucket():
     try:
@@ -144,7 +149,7 @@ def main():
 
     components.html(video_html, height=600)
 
-    uploaded_video = st.file_uploader("Upload your recorded video", type=["webm", "mp4", "avi", "mov"])
+    uploaded_video = st.file_uploader("Upload your recorded video", type=["webm"])
     if uploaded_video is not None:
         video_path, tempdir = handle_uploaded_video(uploaded_video)
 
@@ -156,6 +161,7 @@ def main():
                 s3_filename = upload_to_s3(video_path)
                 if s3_filename:
                     response = detect_faces_in_video(s3_filename)
+
                     if response:
                         liveness_confidence = response['FaceDetails'][0]['Confidence']
                         st.success(f"Face detected successfully! Liveness confidence: {liveness_confidence:.2f}%")
