@@ -2,9 +2,8 @@ import os
 import boto3
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File
-from typing import List
 from starlette.responses import JSONResponse
-from starlette.background import BackgroundTasks
+import tempfile
 
 load_dotenv()
 
@@ -48,16 +47,22 @@ def detect_faces_in_video(filename):
         return None
 
 @app.post("/upload_video")
-async def upload_video(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    file_path = f"/tmp/{file.filename}"
-    with open(file_path, "wb") as buffer:
-        buffer.write(await file.read())
-
-    output_path = detect_faces_in_video(file_path)
-    object_name = os.path.basename(output_path)
-    background_tasks.add_task(upload_to_s3, output_path, BUCKET_NAME, object_name)
-
-    return JSONResponse(content={"message": "File uploaded successfully"})
+async def upload_video(file: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_file.write(await file.read())
+        tmp_file_path = tmp_file.name
+    
+    s3_filename = upload_to_s3(tmp_file_path)
+    if s3_filename:
+        response = detect_faces_in_video(s3_filename)
+        os.remove(tmp_file_path)
+        if response:
+            return JSONResponse(content={"message": "File uploaded and processed successfully", "response": response})
+        else:
+            return JSONResponse(content={"message": "File uploaded but face detection failed"}, status_code=500)
+    else:
+        os.remove(tmp_file_path)
+        return JSONResponse(content={"message": "File upload failed"}, status_code=500)
 
 @app.get("/")
 def read_root():
