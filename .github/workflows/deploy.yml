@@ -121,7 +121,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
@@ -178,6 +178,10 @@ jobs:
 
           # Replace the placeholder in streamlit_app.py with the actual public IP
           sed -i "s|http://your-ec2-public-ip:8000/upload_video|http://44.207.160.25:8000/upload_video|g" /home/ec2-user/liveness_detection/app/streamlit_app.py
+
+          # Stop any existing tmux sessions to avoid duplicate session errors
+          tmux kill-session -t streamlit_session || true
+          tmux kill-session -t fast_api || true
 
           # Start Streamlit using tmux
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"

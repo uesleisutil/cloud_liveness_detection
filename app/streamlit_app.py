@@ -59,7 +59,7 @@ video_html = """
                     const formData = new FormData();
                     formData.append('file', blob, 'recorded.webm');
 
-                    fetch('http://your-ec2-public-ip:8000/upload_video', {{
+                    fetch('http://44.207.160.25:8000/upload_video', {{
                         method: 'POST',
                         body: formData
                     }}).then(response => response.json())
