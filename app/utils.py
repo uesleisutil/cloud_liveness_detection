@@ -9,14 +9,8 @@ AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 REGION_NAME = os.getenv('AWS_REGION')
 BUCKET_NAME = os.getenv('S3_BUCKET')
 
-# Debug: print environment variables
-print(f"AWS_ACCESS_KEY_ID: {AWS_ACCESS_KEY_ID}")
-print(f"AWS_SECRET_ACCESS_KEY: {AWS_SECRET_ACCESS_KEY}")
-print(f"REGION_NAME: {REGION_NAME}")
-print(f"BUCKET_NAME: {BUCKET_NAME}")
-
-if not REGION_NAME:
-    raise ValueError("AWS_REGION environment variable not set")
+if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY or not REGION_NAME or not BUCKET_NAME:
+    raise ValueError("AWS environment variables not set properly")
 
 rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
@@ -62,4 +56,3 @@ def analyze_movement(images):
 
     threshold = 5000
     return non_zero_count > threshold
-
