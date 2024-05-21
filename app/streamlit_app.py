@@ -46,6 +46,16 @@ video_html = """
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
+
+                    const formData = new FormData();
+                    formData.append('file', blob, 'recorded.webm');
+
+                    fetch('/upload_video', {
+                        method: 'POST',
+                        body: formData
+                    }).then(response => response.json())
+                      .then(data => console.log('Success:', data))
+                      .catch(error => console.error('Error:', error));
                 };
 
                 mediaRecorder.ondataavailable = (event) => {
