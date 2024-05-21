@@ -19,7 +19,7 @@ def handle_uploaded_video(video_file):
     return video_path, tempdir
 
 # HTML and JavaScript for video capture
-video_html = f"""
+video_html = """
 <div>
     <video id="video" width="640" height="480" autoplay muted></video>
     <div>
@@ -59,7 +59,7 @@ video_html = f"""
                     const formData = new FormData();
                     formData.append('file', blob, 'recorded.webm');
 
-                    fetch('http://{DOMAIN_NAME}:8000/upload_video', {{
+                    fetch('http://{0}:8000/upload_video', {{
                         method: 'POST',
                         body: formData
                     }}).then(response => response.json())
@@ -90,7 +90,7 @@ video_html = f"""
         });
     </script>
 </div>
-"""
+""".format(DOMAIN_NAME)
 
 def main():
     st.title("Quantum Finance - Facial Liveness Detection")
