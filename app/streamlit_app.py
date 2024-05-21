@@ -13,7 +13,7 @@ def handle_uploaded_video(video_file):
     return video_path, tempdir
 
 # HTML and JavaScript for video capture
-video_html = """
+video_html = f"""
     <div>
         <video id="video" width="640" height="480" autoplay muted></video>
         <div>
@@ -28,19 +28,19 @@ video_html = """
             const startButton = document.getElementById('startButton');
             const stopButton = document.getElementById('stopButton');
 
-            startButton.addEventListener('click', async () => {
+            startButton.addEventListener('click', async () => {{
                 console.log("Start button clicked");
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                try {{
+                    const stream = await navigator.mediaDevices.getUserMedia({{ video: true }});
                     console.log("Media stream obtained", stream);
                     video.srcObject = stream;
                     recordedBlobs = [];
-                    const options = { mimeType: 'video/webm;codecs=vp9' };
+                    const options = {{ mimeType: 'video/webm;codecs=vp9' }};
                     mediaRecorder = new MediaRecorder(stream, options);
 
-                    mediaRecorder.onstop = async (event) => {
+                    mediaRecorder.onstop = async (event) => {{
                         console.log("Recording stopped", event);
-                        const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+                        const blob = new Blob(recordedBlobs, {{ type: 'video/webm' }});
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.style.display = 'none';
@@ -53,35 +53,35 @@ video_html = """
                         const formData = new FormData();
                         formData.append('file', blob, 'recorded.webm');
 
-                        fetch('http://44.207.160.25:8000/upload_video', {
+                        fetch('http://44.207.160.25:8000/upload_video', {{
                             method: 'POST',
                             body: formData
-                        }).then(response => response.json())
+                        }}).then(response => response.json())
                           .then(data => console.log('Success:', data))
                           .catch(error => console.error('Error:', error));
-                    };
+                    }};
 
-                    mediaRecorder.ondataavailable = (event) => {
-                        if (event.data && event.data.size > 0) {
+                    mediaRecorder.ondataavailable = (event) => {{
+                        if (event.data && event.data.size > 0) {{
                             recordedBlobs.push(event.data);
-                        }
-                    };
+                        }}
+                    }};
 
                     mediaRecorder.start();
                     console.log("MediaRecorder started", mediaRecorder);
                     startButton.disabled = true;
                     stopButton.disabled = false;
-                } catch (error) {
+                }} catch (error) {{
                     console.error("Error accessing media devices.", error);
-                }
-            });
+                }}
+            }});
 
-            stopButton.addEventListener('click', () => {
+            stopButton.addEventListener('click', () => {{
                 mediaRecorder.stop();
                 video.srcObject.getTracks().forEach(track => track.stop());
                 startButton.disabled = false;
                 stopButton.disabled = true;
-            });
+            }});
         </script>
     </div>
 """
@@ -92,7 +92,7 @@ def main():
 
     components.html(video_html, height=600)
 
-    uploaded_video = st.file_uploader("Upload your recorded video", type=["webm"])
+    uploaded_video = st.file_uploader("Upload your recorded video", type=["webm", "mp4", "avi", "mov"])
     if uploaded_video is not None:
         video_path, tempdir = handle_uploaded_video(uploaded_video)
 
