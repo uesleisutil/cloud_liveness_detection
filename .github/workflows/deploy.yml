@@ -17,7 +17,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y awscli
-          
+
       - name: Terminate Previous Instances
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -32,7 +32,7 @@ jobs:
           else
             echo "No running instances found."
           fi
-          
+
       - name: Release Previous Elastic IPs
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -59,7 +59,7 @@ jobs:
           else
             echo "No Elastic IPs to release."
           fi
-          
+
       - name: Create Elastic IP
         id: create_elastic_ip
         env:
@@ -70,7 +70,7 @@ jobs:
           set -x
           ELASTIC_IP=$(aws ec2 allocate-address --query 'PublicIp' --output text)
           echo "ELASTIC_IP=$ELASTIC_IP" >> $GITHUB_ENV
-          
+
       - name: Configure Security Group
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -125,7 +125,7 @@ jobs:
           if [ "$DNS_HOSTNAMES" != "true" ]; then
             aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames "{\"Value\":true}"
           fi
-          
+
       - name: Ensure Subnet and Route Table Configuration
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -176,7 +176,7 @@ jobs:
           else
             echo "No S3 endpoint found in the VPC."
           fi
-          
+
       - name: Configure Network ACL
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -198,7 +198,7 @@ jobs:
           fi
           echo "Adding inbound rule for ephemeral ports"
           aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=1024,To=65535 --ingress --rule-action allow --cidr-block 0.0.0.0/0
-          
+
       - name: Create EC2 Instance
         id: create_ec2
         env:
@@ -223,7 +223,7 @@ jobs:
           else
             echo "Outbound rules already configured."
           fi
-          
+
       - name: Associate Elastic IP
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -234,7 +234,7 @@ jobs:
         run: |
           set -x
           aws ec2 associate-address --instance-id $INSTANCE_ID --public-ip $ELASTIC_IP
-          
+
       - name: Get instance IP
         id: get_instance_ip
         env:
@@ -250,7 +250,7 @@ jobs:
             exit 1
           fi
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
-          
+
       - name: Verify SSH Connectivity
         env:
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
@@ -261,7 +261,7 @@ jobs:
             echo "Tentativa $i: Falha ao conectar na porta 22. Aguardando 10 segundos antes de tentar novamente."
             sleep 10
           done
-          
+
       - name: Deploy Streamlit App
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -272,17 +272,17 @@ jobs:
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
           AMI_ID: ${{ secrets.AMI_ID }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}          
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
         run: |
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
-       
+
           # Create a local script file
           cat << 'EOF' > deploy_script.sh
           #!/bin/bash
           set -e
-      
+
           # Stop any running package managers
           sudo pkill -f yum || true
           sudo pkill -f apt-get || true
@@ -290,11 +290,11 @@ jobs:
           sudo pkill -9 -f apt-get || true
           sudo killall -9 yum || true
           sudo killall -9 apt-get || true
-      
+
           # Clean and update package cache
           sudo yum clean all
           sudo yum makecache
-      
+
           echo "Atualizando pacotes e instalando dependências"
           timeout 5m sudo yum update -y
           timeout 5m sudo yum install -y python3 tmux python3-pip
@@ -304,10 +304,10 @@ jobs:
 
           # Activate the virtual environment
           source venv/bin/activate
-      
+
           # Install the required packages in the virtual environment
           pip install -r /home/ec2-user/liveness_detection/requirements.txt
-      
+
           # Adicione o caminho do Streamlit ao PATH
           export PATH=$PATH:/usr/local/bin/
 
@@ -320,22 +320,25 @@ jobs:
           # Source the .env file
           export $(grep -v '^#' .env | xargs)
 
+          # Substitua o IP público no streamlit_app.py
+          sed -i "s|http://your-ec2-public-ip:8000/upload_video|http://$INSTANCE_IP:8000/upload_video|g" /home/ec2-user/liveness_detection/app/streamlit_app.py
+
           # Inicia o Streamlit usando tmux
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
           tmux new -d -s fast_api "source /home/ec2-user/venv/bin/activate && export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID && export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY && export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION && uvicorn app.api:app --host 0.0.0.0 --port 8000"
           EOF
-      
+
           # Transfer the script to the EC2 instance
           scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
-      
+
           # Set executable permissions for the script
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh"
-      
+
           # Create the liveness_detection directory on the EC2 instance with appropriate permissions
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "sudo mkdir -p /home/ec2-user/liveness_detection && sudo chown -R ec2-user:ec2-user /home/ec2-user/liveness_detection"
-      
+
           # Transfer the application code to the EC2 instance
           scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@$INSTANCE_IP:/home/ec2-user/liveness_detection
-      
+
           # Execute the script on the EC2 instance
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "/home/ec2-user/deploy_script.sh"
