@@ -253,6 +253,7 @@ jobs:
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
           AMI_ID: ${{ secrets.AMI_ID }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}          
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
         run: |
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
@@ -293,10 +294,10 @@ jobs:
           export PATH=$PATH:/usr/local/bin/
 
           # Create .env file with secrets
-          echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" > .env
-          echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> .env
-          echo "AWS_REGION=${AWS_REGION}" >> .env
-          echo "S3_BUCKET=${S3_BUCKET}" >> .env
+          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" > .env
+          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
+          echo "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION" >> .env
+          echo "S3_BUCKET=$S3_BUCKET" >> .env
 
           # Source the .env file
           export $(grep -v '^#' .env | xargs)
