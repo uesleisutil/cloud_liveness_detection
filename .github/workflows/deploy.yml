@@ -258,7 +258,7 @@ jobs:
         run: |
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
-      
+       
           # Create a local script file
           cat << 'EOF' > deploy_script.sh
           #!/bin/bash
@@ -291,6 +291,8 @@ jobs:
       
           # Adicione o caminho do Streamlit ao PATH
           export PATH=$PATH:/usr/local/bin/
+          export PYTHONPATH=/home/ec2-user/liveness_detection
+
 
           # Create .env file with secrets
           echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" > .env
