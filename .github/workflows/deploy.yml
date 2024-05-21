@@ -119,5 +119,5 @@ jobs:
           scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@44.207.160.25:/home/ec2-user/liveness_detection
 
           # Execute the script on the EC2 instance
-          ssh -o StrictHostKeyChecking-no -i ec2_key.pem ec2-user@44.207.160.25 "/home/ec2-user/deploy_script.sh"
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "/home/ec2-user/deploy_script.sh"
         shell: /usr/bin/bash -e {0}
