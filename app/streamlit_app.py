@@ -1,5 +1,5 @@
 import streamlit as st
-from app.utils import upload_to_s3, detect_faces, clear_s3_bucket, analyze_movement
+from utils import upload_to_s3, detect_faces, clear_s3_bucket, analyze_movement
 import cv2
 import os
 import tempfile
