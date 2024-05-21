@@ -4,7 +4,6 @@ import uvicorn
 import boto3
 import os
 import uuid
-import cv2
 
 app = FastAPI()
 
