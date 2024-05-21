@@ -5,6 +5,7 @@ import streamlit.components.v1 as components
 import boto3
 from dotenv import load_dotenv
 import cv2
+import logging
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -17,22 +18,26 @@ BUCKET_NAME = os.getenv('S3_BUCKET')
 rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def clear_s3_bucket():
     try:
         bucket = s3.list_objects_v2(Bucket=BUCKET_NAME)
         if 'Contents' in bucket:
             for item in bucket['Contents']:
                 s3.delete_object(Bucket=BUCKET_NAME, Key=item['Key'])
-        print("All images deleted from S3 bucket.")
+        logger.info("All images deleted from S3 bucket.")
     except Exception as e:
-        print(f"Error deleting images from S3: {e}")
+        logger.error(f"Error deleting images from S3: {e}")
 
 def upload_to_s3(filename):
     try:
         s3.upload_file(filename, BUCKET_NAME, os.path.basename(filename))
         return os.path.basename(filename)
     except Exception as e:
-        print(f"Error uploading file to S3: {e}")
+        logger.error(f"Error uploading file to S3: {e}")
         return None
 
 def detect_faces_in_video(filename):
@@ -41,9 +46,10 @@ def detect_faces_in_video(filename):
             Video={'S3Object': {'Bucket': BUCKET_NAME, 'Name': filename}},
             Attributes=['ALL']
         )
+        logger.info(f"Rekognition response: {response}")
         return response
     except Exception as e:
-        print(f"Error detecting faces: {e}")
+        logger.error(f"Error detecting faces: {e}")
         return None
 
 def handle_uploaded_video(video_file):
