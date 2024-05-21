@@ -31,46 +31,50 @@ video_html = """
 
             startButton.addEventListener('click', async () => {
                 console.log("Start button clicked");
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                console.log("Media stream obtained", stream);
-                video.srcObject = stream;
-                recordedBlobs = [];
-                const options = { mimeType: 'video/webm;codecs=vp9' };
-                mediaRecorder = new MediaRecorder(stream, options);
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    console.log("Media stream obtained", stream);
+                    video.srcObject = stream;
+                    recordedBlobs = [];
+                    const options = { mimeType: 'video/webm;codecs=vp9' };
+                    mediaRecorder = new MediaRecorder(stream, options);
 
-                mediaRecorder.onstop = (event) => {
-                    console.log("Recording stopped", event);
-                    const blob = new Blob(recordedBlobs, { type: 'video/webm' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = 'test.webm';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
+                    mediaRecorder.onstop = async (event) => {
+                        console.log("Recording stopped", event);
+                        const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = 'test.webm';
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
 
-                    const formData = new FormData();
-                    formData.append('file', blob, 'recorded.webm');
+                        const formData = new FormData();
+                        formData.append('file', blob, 'recorded.webm');
 
-                    fetch('/upload_video', {
-                        method: 'POST',
-                        body: formData
-                    }).then(response => response.json())
-                      .then(data => console.log('Success:', data))
-                      .catch(error => console.error('Error:', error));
-                };
+                        fetch('/upload_video', {
+                            method: 'POST',
+                            body: formData
+                        }).then(response => response.json())
+                          .then(data => console.log('Success:', data))
+                          .catch(error => console.error('Error:', error));
+                    };
 
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data && event.data.size > 0) {
-                        recordedBlobs.push(event.data);
-                    }
-                };
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data && event.data.size > 0) {
+                            recordedBlobs.push(event.data);
+                        }
+                    };
 
-                mediaRecorder.start();
-                console.log("MediaRecorder started", mediaRecorder);
-                startButton.disabled = true;
-                stopButton.disabled = false;
+                    mediaRecorder.start();
+                    console.log("MediaRecorder started", mediaRecorder);
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                } catch (error) {
+                    console.error("Error accessing media devices.", error);
+                }
             });
 
             stopButton.addEventListener('click', () => {
