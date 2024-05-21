@@ -7,26 +7,31 @@ from utils import upload_to_s3, detect_faces, clear_s3_bucket, analyze_movement
 
 def capture_images(num_images=10, delay=0.2, initial_delay=1):
     cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        raise Exception("Could not open webcam")
     images = []
     tempdirs = []
 
+    st.info(f"Initial delay of {initial_delay} seconds to adjust camera...")
+    cv2.waitKey(initial_delay * 1000)
+
     for _ in range(num_images):
         ret, frame = cap.read()
-        if ret:
-            tempdir = tempfile.mkdtemp()
-            filename = os.path.join(tempdir, f"temp_{uuid.uuid4()}.jpg")
-            cv2.imwrite(filename, frame)
-            images.append(filename)
-            tempdirs.append(tempdir)
-            cv2.waitKey(int(delay * 1000))
-        else:
+        if not ret:
             cap.release()
             raise Exception("Could not capture image from webcam")
+        tempdir = tempfile.mkdtemp()
+        filename = os.path.join(tempdir, f"temp_{uuid.uuid4()}.jpg")
+        cv2.imwrite(filename, frame)
+        images.append(filename)
+        tempdirs.append(tempdir)
+        st.info(f"Captured image {_ + 1}")
+        cv2.waitKey(int(delay * 1000))
 
     cap.release()
     return images, tempdirs
 
-def main():
+ def main():
     st.title("Quantum Finance - Facial Liveness Detection")
     st.write("Click the button below to capture images and verify liveness.")
 
