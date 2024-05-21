@@ -35,6 +35,7 @@ def clear_s3_bucket():
 def upload_to_s3(filename):
     try:
         s3.upload_file(filename, BUCKET_NAME, os.path.basename(filename))
+        logger.info(f"File {filename} uploaded to S3 bucket {BUCKET_NAME}")
         return os.path.basename(filename)
     except Exception as e:
         logger.error(f"Error uploading file to S3: {e}")
@@ -58,6 +59,8 @@ async def upload_video(file: UploadFile = File(...)):
         tmp_file.write(await file.read())
         tmp_file_path = tmp_file.name
     
+    logger.info(f"Received file {file.filename}, saved as {tmp_file_path}")
+
     s3_filename = upload_to_s3(tmp_file_path)
     if s3_filename:
         response = detect_faces_in_video(s3_filename)

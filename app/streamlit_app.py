@@ -35,6 +35,7 @@ def clear_s3_bucket():
 def upload_to_s3(filename):
     try:
         s3.upload_file(filename, BUCKET_NAME, os.path.basename(filename))
+        logger.info(f"File {filename} uploaded to S3 bucket {BUCKET_NAME}")
         return os.path.basename(filename)
     except Exception as e:
         logger.error(f"Error uploading file to S3: {e}")
@@ -58,6 +59,7 @@ def handle_uploaded_video(video_file):
     
     with open(video_path, 'wb') as f:
         f.write(video_file.read())
+    logger.info(f"Video saved to {video_path}")
 
     return video_path, tempdir
 
@@ -151,18 +153,8 @@ def main():
             try:
                 clear_s3_bucket()
                 s3_filename = upload_to_s3(video_path)
-                response = detect_faces_in_video(s3_filename)
-
-                if response:
-                    liveness_confidence = response['FaceDetails'][0]['Confidence']
-                    st.success(f"Face detected successfully! Liveness confidence: {liveness_confidence:.2f}%")
-                else:
-                    st.error("No face detected or liveness criteria not met.")
-            except Exception as e:
-                st.error(f"Error: {e}")
-            finally:
-                os.remove(video_path)
-                os.rmdir(tempdir)
-
-if __name__ == "__main__":
-    main()
+                if s3_filename:
+                    response = detect_faces_in_video(s3_filename)
+                    if response:
+                        liveness_confidence = response['FaceDetails'][0]['Confidence']
+        
