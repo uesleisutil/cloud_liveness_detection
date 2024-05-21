@@ -1,6 +1,7 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 import boto3
 import os
+import tempfile
 import uuid
 from app.utils import upload_to_s3, detect_faces, clear_s3_bucket
 
