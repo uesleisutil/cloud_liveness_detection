@@ -251,7 +251,6 @@ jobs:
           EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
-          AMI_ID: ${{ secrets.AMI_ID }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}          
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
@@ -303,13 +302,6 @@ jobs:
           export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
           export AWS_REGION=$AWS_REGION
           export S3_BUCKET=$S3_BUCKET
-
-          # Debug: print environment variables
-          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID"
-          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY"
-          echo "AWS_REGION=$AWS_REGION"
-          echo "S3_BUCKET=$S3_BUCKET"
-
       
           # Transfer the script to the EC2 instance
           scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
