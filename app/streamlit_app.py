@@ -30,13 +30,16 @@ video_html = """
             const stopButton = document.getElementById('stopButton');
 
             startButton.addEventListener('click', async () => {
+                console.log("Start button clicked");
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                console.log("Media stream obtained", stream);
                 video.srcObject = stream;
                 recordedBlobs = [];
                 const options = { mimeType: 'video/webm;codecs=vp9' };
                 mediaRecorder = new MediaRecorder(stream, options);
 
                 mediaRecorder.onstop = (event) => {
+                    console.log("Recording stopped", event);
                     const blob = new Blob(recordedBlobs, { type: 'video/webm' });
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -65,6 +68,7 @@ video_html = """
                 };
 
                 mediaRecorder.start();
+                console.log("MediaRecorder started", mediaRecorder);
                 startButton.disabled = true;
                 stopButton.disabled = false;
             });
