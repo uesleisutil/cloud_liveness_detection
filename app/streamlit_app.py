@@ -1,41 +1,33 @@
 import streamlit as st
 import os
-import requests
+import tempfile
+from utils import upload_to_s3, detect_faces_in_video, clear_s3_bucket
+import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Quantum Finance - Facial Liveness Detection", layout="wide")
+# Function to handle the uploaded video file
+def handle_uploaded_video(video_file):
+    tempdir = tempfile.mkdtemp()
+    video_path = os.path.join(tempdir, "uploaded_video.webm")
+    
+    with open(video_path, 'wb') as f:
+        f.write(video_file.read())
 
-def main():
-    st.title("Quantum Finance - Facial Liveness Detection")
-    st.write("Click the button below to capture a video and verify liveness.")
+    return video_path, tempdir
 
-    st.markdown(
-        """
-        <style>
-        .record-button {
-            padding: 10px 20px;
-            font-size: 16px;
-            color: #fff;
-            background-color: #007bff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .record-button:hover {
-            background-color: #0056b3;
-        }
-        </style>
-        <button id="recordButton" class="record-button">Start Recording</button>
-        <button id="stopButton" class="record-button" style="display: none;">Stop Recording</button>
-        <video id="video" width="640" height="480" autoplay muted></video>
-        <script>
+# HTML and JavaScript for video capture
+video_html = """
+    <video id="video" width="640" height="480" autoplay></video>
+    <button id="startButton">Start Recording</button>
+    <button id="stopButton" disabled>Stop Recording</button>
+    <script>
         let mediaRecorder;
         let recordedBlobs;
 
         const video = document.querySelector('video');
-        const recordButton = document.getElementById('recordButton');
+        const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
 
-        recordButton.addEventListener('click', async () => {
+        startButton.addEventListener('click', async () => {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             video.srcObject = stream;
             recordedBlobs = [];
@@ -54,7 +46,7 @@ def main():
 
                 if (response.ok) {
                     const data = await response.json();
-                    Streamlit.setComponentValue(data);
+                    console.log('Success:', data);
                 } else {
                     console.error('Upload failed.');
                 }
@@ -67,28 +59,35 @@ def main():
             };
 
             mediaRecorder.start();
-            recordButton.style.display = 'none';
-            stopButton.style.display = 'block';
+            startButton.disabled = true;
+            stopButton.disabled = false;
         });
 
         stopButton.addEventListener('click', () => {
             mediaRecorder.stop();
             video.srcObject.getTracks().forEach(track => track.stop());
-            stopButton.style.display = 'none';
-            recordButton.style.display = 'block';
+            startButton.disabled = false;
+            stopButton.disabled = true;
         });
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
+    </script>
+"""
 
-    if 'video_data' in st.session_state:
-        video_data = st.session_state.video_data
-        st.video(video_data)
+def main():
+    st.title("Quantum Finance - Facial Liveness Detection")
+    st.write("Click the button below to capture a video and verify liveness.")
+
+    components.html(video_html)
+
+    uploaded_video = st.file_uploader("Upload your recorded video", type=["webm"])
+    if uploaded_video is not None:
+        video_path, tempdir = handle_uploaded_video(uploaded_video)
+
+        st.video(video_path)
 
         if st.button("Analyze Uploaded Video"):
             try:
-                s3_filename = upload_to_s3(video_data)
+                clear_s3_bucket()
+                s3_filename = upload_to_s3(video_path)
                 response = detect_faces_in_video(s3_filename)
 
                 if response:
@@ -98,6 +97,9 @@ def main():
                     st.error("No face detected or liveness criteria not met.")
             except Exception as e:
                 st.error(f"Error: {e}")
+            finally:
+                os.remove(video_path)
+                os.rmdir(tempdir)
 
 if __name__ == "__main__":
     main()
