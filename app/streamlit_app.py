@@ -23,6 +23,7 @@ video_html = """
     <div>
         <button id="startButton">Start Recording</button>
         <button id="stopButton" disabled>Stop Recording</button>
+        <a id="downloadLink" style="display: none;">Download Video</a>
     </div>
     <script>
         let mediaRecorder;
@@ -31,6 +32,7 @@ video_html = """
         const video = document.querySelector('video');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
+        const downloadLink = document.getElementById('downloadLink');
 
         async function requestCameraPermission() {
             try {
@@ -57,14 +59,10 @@ video_html = """
                     console.log("Recording stopped", event);
                     const blob = new Blob(recordedBlobs, { type: 'video/webm' });
                     const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = 'test.webm';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-
+                    downloadLink.href = url;
+                    downloadLink.download = 'recorded_video.webm';
+                    downloadLink.style.display = 'block';
+                    
                     const formData = new FormData();
                     formData.append('file', blob, 'recorded.webm');
 
