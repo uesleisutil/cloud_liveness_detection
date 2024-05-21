@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DOMAIN_NAME = os.getenv("DOMAIN_NAME")  # Substitua por seu nome de domínio
+# O nome de domínio que aponta para sua instância EC2
+DOMAIN_NAME = os.getenv("DOMAIN_NAME")  # Exemplo: "liveness.mydomain.com"
 
 def handle_uploaded_video(video_file):
     tempdir = tempfile.mkdtemp()

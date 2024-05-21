@@ -17,6 +17,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y awscli
+
       - name: Terminate Previous Instances
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -31,6 +32,7 @@ jobs:
           else
             echo "No running instances found."
           fi
+
       - name: Release Previous Elastic IPs
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -57,6 +59,7 @@ jobs:
           else
             echo "No Elastic IPs to release."
           fi
+
       - name: Create Elastic IP
         id: create_elastic_ip
         env:
@@ -67,6 +70,7 @@ jobs:
           set -x
           ELASTIC_IP=$(aws ec2 allocate-address --query 'PublicIp' --output text)
           echo "ELASTIC_IP=$ELASTIC_IP" >> $GITHUB_ENV
+
       - name: Configure Security Group
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -94,6 +98,7 @@ jobs:
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
           fi
+
       - name: Ensure DNS and Hostnames are enabled
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -111,6 +116,7 @@ jobs:
           if [ "$DNS_HOSTNAMES" != "true" ]; then
             aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames "{\"Value\":true}"
           fi
+
       - name: Ensure Subnet and Route Table Configuration
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -138,50 +144,7 @@ jobs:
               echo "A rota para o gateway de Internet já está configurada."
             fi
           fi
-          # Check and update S3 endpoint policy
-          S3_ENDPOINT_ID=$(aws ec2 describe-vpc-endpoints --filters "Name=service-name,Values=com.amazonaws.${{ secrets.AWS_DEFAULT_REGION }}.s3" --query "VpcEndpoints[?VpcId=='$VPC_ID'].VpcEndpointId" --output text)
-          if [ -n "$S3_ENDPOINT_ID" ]; then
-            echo "Updating S3 endpoint policy for VPC Endpoint ID: $S3_ENDPOINT_ID"
-            aws ec2 modify-vpc-endpoint --vpc-endpoint-id $S3_ENDPOINT_ID --policy-document '{
-              "Statement": [
-                {
-                  "Sid": "Amazon Linux AMI Repository Access",
-                  "Principal": "*",
-                  "Action": [
-                    "s3:GetObject"
-                  ],
-                  "Effect": "Allow",
-                  "Resource": [
-                    "arn:aws:s3:::packages.*.amazonaws.com/*",
-                    "arn:aws:s3:::repo.*.amazonaws.com/*"
-                  ]
-                }
-              ]
-            }'
-          else
-            echo "No S3 endpoint found in the VPC."
-          fi
-      - name: Configure Network ACL
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          SUBNET_ID: ${{ secrets.SUBNET_ID }}
-        run: |
-          set -x
-          NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
-          EXISTING_RULES=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[].RuleNumber" --output text)
-          NEW_RULE_NUMBER=100
-          while [[ " $EXISTING_RULES " == *" $NEW_RULE_NUMBER "* ]]; do
-            NEW_RULE_NUMBER=$((NEW_RULE_NUMBER+1))
-          done
-          if [[ " $EXISTING_RULES " == *" 100 "* ]]; then
-            echo "Existing rule 100 found, changing to rule number $NEW_RULE_NUMBER"
-            aws ec2 delete-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --ingress || echo "No ingress entry with number 100"
-            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number $NEW_RULE_NUMBER --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
-          fi
-          echo "Adding inbound rule for ephemeral ports"
-          aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=1024,To=65535 --ingress --rule-action allow --cidr-block 0.0.0.0/0
+
       - name: Create EC2 Instance
         id: create_ec2
         env:
@@ -191,7 +154,7 @@ jobs:
           EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
-          AMI_ID: ${{ secrets.AMI_ID_AWS }}
+          AMI_ID: ${{ secrets.AMI_ID }}
           ELASTIC_IP: ${{ env.ELASTIC_IP }}
         run: |
           set -x
@@ -206,6 +169,7 @@ jobs:
           else
             echo "Outbound rules already configured."
           fi
+
       - name: Associate Elastic IP
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -216,7 +180,7 @@ jobs:
         run: |
           set -x
           aws ec2 associate-address --instance-id $INSTANCE_ID --public-ip $ELASTIC_IP
-      
+
       - name: Get instance IP
         id: get_instance_ip
         env:
@@ -232,6 +196,7 @@ jobs:
             exit 1
           fi
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
+
       - name: Verify SSH Connectivity
         env:
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
@@ -242,7 +207,7 @@ jobs:
             echo "Tentativa $i: Falha ao conectar na porta 22. Aguardando 10 segundos antes de tentar novamente."
             sleep 10
           done
-  
+
       - name: Deploy Streamlit App
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -253,8 +218,10 @@ jobs:
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
           AMI_ID: ${{ secrets.AMI_ID }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}          
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
+          HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
+          RECORD_SET_NAME: ${{ secrets.RECORD_SET_NAME }}
         run: |
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
@@ -301,9 +268,32 @@ jobs:
           # Source the .env file
           export $(grep -v '^#' .env | xargs)
 
+          # Atualizar o registro DNS com o IP público da instância
+          INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+          PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+          
+          cat > update-dns.json << EOF2
+          {
+            "Comment": "Atualizando o registro A para apontar para o IP público da instância EC2",
+            "Changes": [
+              {
+                "Action": "UPSERT",
+                "ResourceRecordSet": {
+                  "Name": "$RECORD_SET_NAME",
+                  "Type": "A",
+                  "TTL": 60,
+                  "ResourceRecords": [{ "Value": "$PUBLIC_IP" }]
+                }
+              }
+            ]
+          }
+          EOF2
+
+          aws route53 change-resource-record-sets --hosted-zone-id $HOSTED_ZONE_ID --change-batch file://update-dns.json
+
           # Inicia o Streamlit usando tmux
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
-          tmux new -d -s fast_api "source /home/ec2-user/venv/bin/activate && export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID && export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY && export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION && fastapi_session "uvicorn app.api:app --host 0.0.0.0 --port 8080""  
+          tmux new -d -s fast_api "source /home/ec2-user/venv/bin/activate && export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID && export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY && export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION && uvicorn app.api:app --host 0.0.0.0 --port 8000"  
           EOF
       
           # Transfer the script to the EC2 instance
