@@ -31,7 +31,7 @@ def capture_images(num_images=10, delay=0.2, initial_delay=1):
     cap.release()
     return images, tempdirs
 
- def main():
+def main():
     st.title("Quantum Finance - Facial Liveness Detection")
     st.write("Click the button below to capture images and verify liveness.")
 
