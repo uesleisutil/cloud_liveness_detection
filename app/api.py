@@ -1,71 +1,120 @@
-import threading
-import uvicorn
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
 import streamlit as st
-import cv2
 import os
 import tempfile
-import uuid
-import boto3
-from dotenv import load_dotenv
-from utils import detect_faces_in_video
+from utils import upload_to_s3, detect_faces_in_video, clear_s3_bucket
+import streamlit.components.v1 as components
 
-load_dotenv()
+def handle_uploaded_video(video_file):
+    tempdir = tempfile.mkdtemp()
+    video_path = os.path.join(tempdir, "uploaded_video.webm")
+    
+    with open(video_path, 'wb') as f:
+        f.write(video_file.read())
 
-AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-REGION_NAME = os.getenv('AWS_REGION')
-BUCKET_NAME = os.getenv('S3_BUCKET')
+    return video_path, tempdir
 
-rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
-s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
+# HTML and JavaScript for video capture
+video_html = """
+    <div>
+        <video id="video" width="640" height="480" autoplay muted></video>
+        <div>
+            <button id="startButton">Start Recording</button>
+            <button id="stopButton" disabled>Stop Recording</button>
+        </div>
+        <script>
+            let mediaRecorder;
+            let recordedBlobs;
 
-app = FastAPI()
+            const video = document.querySelector('video');
+            const startButton = document.getElementById('startButton');
+            const stopButton = document.getElementById('stopButton');
 
-def upload_to_s3(filename):
-    try:
-        s3.upload_file(filename, BUCKET_NAME, os.path.basename(filename))
-        return os.path.basename(filename)
-    except Exception as e:
-        print(f"Error uploading file to S3: {e}")
-        return None
+            startButton.addEventListener('click', async () => {
+                console.log("Start button clicked");
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    console.log("Media stream obtained", stream);
+                    video.srcObject = stream;
+                    recordedBlobs = [];
+                    const options = { mimeType: 'video/webm;codecs=vp9' };
+                    mediaRecorder = new MediaRecorder(stream, options);
 
-def detect_faces(filename):
-    try:
-        response = rekognition.detect_faces(
-            Image={'S3Object': {'Bucket': BUCKET_NAME, 'Name': filename}},
-            Attributes=['ALL']
-        )
-        return response
-    except Exception as e:
-        print(f"Error detecting faces: {e}")
-        return None
+                    mediaRecorder.onstop = async (event) => {
+                        console.log("Recording stopped", event);
+                        const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = 'test.webm';
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
 
-@app.post("/upload_video/")
-async def upload_video(file: UploadFile = File(...)):
-    try:
-        tempdir = tempfile.mkdtemp()
-        filepath = os.path.join(tempdir, file.filename)
-        with open(filepath, 'wb') as f:
-            f.write(await file.read())
-        s3_filename = upload_to_s3(filepath)
-        if not s3_filename:
-            raise HTTPException(status_code=500, detail="Failed to upload file to S3")
-        response = detect_faces_in_video(s3_filename)
-        if not response:
-            raise HTTPException(status_code=500, detail="Failed to detect faces")
-        return JSONResponse(content={"filename": s3_filename})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        os.rmdir(tempdir)
+                        const formData = new FormData();
+                        formData.append('file', blob, 'recorded.webm');
 
-def run_fastapi():
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+                        fetch('http://your-ec2-public-ip/upload_video', {
+                            method: 'POST',
+                            body: formData
+                        }).then(response => response.json())
+                          .then(data => console.log('Success:', data))
+                          .catch(error => console.error('Error:', error));
+                    };
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data && event.data.size > 0) {
+                            recordedBlobs.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.start();
+                    console.log("MediaRecorder started", mediaRecorder);
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                } catch (error) {
+                    console.error("Error accessing media devices.", error);
+                }
+            });
+
+            stopButton.addEventListener('click', () => {
+                mediaRecorder.stop();
+                video.srcObject.getTracks().forEach(track => track.stop());
+                startButton.disabled = false;
+                stopButton.disabled = true;
+            });
+        </script>
+    </div>
+"""
+
+def main():
+    st.title("Quantum Finance - Facial Liveness Detection")
+    st.write("Click the button below to capture a video and verify liveness.")
+
+    components.html(video_html, height=600)
+
+    uploaded_video = st.file_uploader("Upload your recorded video", type=["webm"])
+    if uploaded_video is not None:
+        video_path, tempdir = handle_uploaded_video(uploaded_video)
+
+        st.video(video_path)
+
+        if st.button("Analyze Uploaded Video"):
+            try:
+                clear_s3_bucket()
+                s3_filename = upload_to_s3(video_path)
+                response = detect_faces_in_video(s3_filename)
+
+                if response:
+                    liveness_confidence = response['FaceDetails'][0]['Confidence']
+                    st.success(f"Face detected successfully! Liveness confidence: {liveness_confidence:.2f}%")
+                else:
+                    st.error("No face detected or liveness criteria not met.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+            finally:
+                os.remove(video_path)
+                os.rmdir(tempdir)
 
 if __name__ == "__main__":
-    fastapi_thread = threading.Thread(target=run_fastapi)
-    fastapi_thread.start()
+    main()
