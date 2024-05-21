@@ -251,14 +251,14 @@ jobs:
           EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
+          AMI_ID: ${{ secrets.AMI_ID }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}          
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
         run: |
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
-     
-
+      
           # Create a local script file
           cat << 'EOF' > deploy_script.sh
           #!/bin/bash
@@ -292,16 +292,19 @@ jobs:
           # Adicione o caminho do Streamlit ao PATH
           export PATH=$PATH:/usr/local/bin/
 
+          # Create .env file with secrets
+          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" > .env
+          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
+          echo "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION" >> .env
+          echo "S3_BUCKET=$S3_BUCKET" >> .env
+
+          # Source the .env file
+          export $(grep -v '^#' .env | xargs)
+
           # Inicia o Streamlit usando tmux
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
           tmux new -d -s fast_api "source /home/ec2-user/venv/bin/activate && export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID && export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY && export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION && fastapi_session "uvicorn app.api:app --host 0.0.0.0 --port 8080""  
           EOF
-
-          # Export environment variables
-          export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-          export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-          export AWS_DEFAULT_REGION=$AWS_REGION
-          export S3_BUCKET=$S3_BUCKET
       
           # Transfer the script to the EC2 instance
           scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
