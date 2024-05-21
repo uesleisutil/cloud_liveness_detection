@@ -157,4 +157,16 @@ def main():
                     response = detect_faces_in_video(s3_filename)
                     if response:
                         liveness_confidence = response['FaceDetails'][0]['Confidence']
-        
+                        st.success(f"Face detected successfully! Liveness confidence: {liveness_confidence:.2f}%")
+                    else:
+                        st.error("No face detected or liveness criteria not met.")
+                else:
+                    st.error("Error uploading video to S3.")
+            except Exception as e:
+                st.error(f"Error: {e}")
+            finally:
+                os.remove(video_path)
+                os.rmdir(tempdir)
+
+if __name__ == "__main__":
+    main()
