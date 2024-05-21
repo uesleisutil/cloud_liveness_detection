@@ -3,7 +3,7 @@ import boto3
 import os
 import tempfile
 import uuid
-from app.utils import upload_to_s3, detect_faces, clear_s3_bucket
+from utils import upload_to_s3, detect_faces, clear_s3_bucket
 
 app = FastAPI()
 

@@ -3,7 +3,7 @@ import cv2
 import os
 import tempfile
 import uuid
-from app.utils import upload_to_s3, detect_faces, clear_s3_bucket, analyze_movement
+from utils import upload_to_s3, detect_faces, clear_s3_bucket, analyze_movement
 
 def capture_images(num_images=10, delay=0.2, initial_delay=1):
     cap = cv2.VideoCapture(0)
