@@ -1,6 +1,7 @@
 import boto3
 import os
 from dotenv import load_dotenv
+import cv2
 
 load_dotenv()
 
@@ -34,6 +35,30 @@ def detect_faces(filename):
     try:
         response = rekognition.detect_faces(
             Image={'S3Object': {'Bucket': BUCKET_NAME, 'Name': filename}},
+            Attributes=['ALL']
+        )
+        return response
+    except Exception as e:
+        print(f"Error detecting faces: {e}")
+        return None
+
+def analyze_movement(images):
+    if len(images) < 2:
+        return False
+
+    img1 = cv2.imread(images[0], cv2.IMREAD_GRAYSCALE)
+    img2 = cv2.imread(images[1], cv2.IMREAD_GRAYSCALE)
+
+    diff = cv2.absdiff(img1, img2)
+    non_zero_count = np.count_nonzero(diff)
+
+    threshold = 5000
+    return non_zero_count > threshold
+
+def detect_faces_in_video(filename):
+    try:
+        response = rekognition.detect_faces(
+            Video={'S3Object': {'Bucket': BUCKET_NAME, 'Name': filename}},
             Attributes=['ALL']
         )
         return response

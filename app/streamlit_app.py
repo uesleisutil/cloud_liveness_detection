@@ -1,29 +1,51 @@
 import streamlit as st
-import boto3
-import os
-from dotenv import load_dotenv
 import cv2
-import base64
-import requests
+import os
+import tempfile
+import uuid
+import numpy as np
+from utils import upload_to_s3, detect_faces_in_video, clear_s3_bucket
 
-# Load environment variables
-load_dotenv()
-
-AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-REGION_NAME = os.getenv('AWS_REGION')
-BUCKET_NAME = os.getenv('S3_BUCKET')
-
-rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
-s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
+def capture_video():
+    video_file = st.file_uploader("Upload a video file", type=["mp4", "mov", "avi"])
+    if video_file:
+        tempdir = tempfile.mkdtemp()
+        filepath = os.path.join(tempdir, video_file.name)
+        with open(filepath, 'wb') as f:
+            f.write(video_file.read())
+        return filepath, tempdir
+    else:
+        return None, None
 
 def main():
-    st.title("Webcam Capture with AWS Rekognition")
+    st.title("Quantum Finance - Facial Liveness Detection")
+    st.write("Click the button below to capture a video and verify liveness.")
 
-    # Serve the HTML page
-    st.markdown("""
-        <iframe src="/static/index.html" width="100%" height="600px"></iframe>
-    """, unsafe_allow_html=True)
+    if st.button("Capture Video"):
+        try:
+            clear_s3_bucket()
+            filepath, tempdir = capture_video()
+            
+            if filepath:
+                st.write("Captured Video:")
+                st.video(filepath)
+
+                s3_filename = upload_to_s3(filepath)
+                response = detect_faces_in_video(s3_filename)
+
+                if response:
+                    liveness_confidence = response['FaceDetails'][0]['Confidence']
+                    st.success(f"Face detected successfully! Liveness confidence: {liveness_confidence:.2f}%")
+                else:
+                    st.error("No face detected or liveness criteria not met.")
+
+                os.remove(filepath)
+                os.rmdir(tempdir)
+            else:
+                st.error("No video captured.")
+
+        except Exception as e:
+            st.error(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
