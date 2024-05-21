@@ -16,7 +16,7 @@ def handle_uploaded_video(video_file):
 
     return video_path, tempdir
 
-# HTML and JavaScript for video capture
+# HTML and JavaScript for video capture with permission request
 video_html = """
 <div>
     <video id="video" width="640" height="480" autoplay muted></video>
@@ -32,10 +32,21 @@ video_html = """
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
 
+        async function requestCameraPermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                return stream;
+            } catch (error) {
+                console.error("Error accessing media devices.", error);
+                alert("Permission to access the camera was denied.");
+                throw error;
+            }
+        }
+
         startButton.addEventListener('click', async () => {
             console.log("Start button clicked");
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const stream = await requestCameraPermission();
                 console.log("Media stream obtained", stream);
                 video.srcObject = stream;
                 recordedBlobs = [];
@@ -76,7 +87,7 @@ video_html = """
                 startButton.disabled = true;
                 stopButton.disabled = false;
             } catch (error) {
-                console.error("Error accessing media devices.", error);
+                console.error("Error starting video recording:", error);
             }
         });
 
