@@ -38,7 +38,7 @@ video_html = """
                 return stream;
             } catch (error) {
                 console.error("Error accessing media devices.", error);
-                alert("Permission to access the camera was denied.");
+                alert("Permission to access the camera was denied. Please allow camera access and try again.");
                 throw error;
             }
         }
