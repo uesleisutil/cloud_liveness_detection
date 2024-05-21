@@ -17,7 +17,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y awscli
-
       - name: Terminate Previous Instances
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -32,7 +31,6 @@ jobs:
           else
             echo "No running instances found."
           fi
-
       - name: Release Previous Elastic IPs
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -59,7 +57,6 @@ jobs:
           else
             echo "No Elastic IPs to release."
           fi
-
       - name: Create Elastic IP
         id: create_elastic_ip
         env:
@@ -70,7 +67,6 @@ jobs:
           set -x
           ELASTIC_IP=$(aws ec2 allocate-address --query 'PublicIp' --output text)
           echo "ELASTIC_IP=$ELASTIC_IP" >> $GITHUB_ENV
-
       - name: Configure Security Group
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -98,7 +94,6 @@ jobs:
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
             aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
           fi
-
       - name: Ensure DNS and Hostnames are enabled
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -116,7 +111,6 @@ jobs:
           if [ "$DNS_HOSTNAMES" != "true" ]; then
             aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames "{\"Value\":true}"
           fi
-
       - name: Ensure Subnet and Route Table Configuration
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -144,7 +138,50 @@ jobs:
               echo "A rota para o gateway de Internet já está configurada."
             fi
           fi
-
+          # Check and update S3 endpoint policy
+          S3_ENDPOINT_ID=$(aws ec2 describe-vpc-endpoints --filters "Name=service-name,Values=com.amazonaws.${{ secrets.AWS_DEFAULT_REGION }}.s3" --query "VpcEndpoints[?VpcId=='$VPC_ID'].VpcEndpointId" --output text)
+          if [ -n "$S3_ENDPOINT_ID" ]; then
+            echo "Updating S3 endpoint policy for VPC Endpoint ID: $S3_ENDPOINT_ID"
+            aws ec2 modify-vpc-endpoint --vpc-endpoint-id $S3_ENDPOINT_ID --policy-document '{
+              "Statement": [
+                {
+                  "Sid": "Amazon Linux AMI Repository Access",
+                  "Principal": "*",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": [
+                    "arn:aws:s3:::packages.*.amazonaws.com/*",
+                    "arn:aws:s3:::repo.*.amazonaws.com/*"
+                  ]
+                }
+              ]
+            }'
+          else
+            echo "No S3 endpoint found in the VPC."
+          fi
+      - name: Configure Network ACL
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          SUBNET_ID: ${{ secrets.SUBNET_ID }}
+        run: |
+          set -x
+          NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
+          EXISTING_RULES=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[].RuleNumber" --output text)
+          NEW_RULE_NUMBER=100
+          while [[ " $EXISTING_RULES " == *" $NEW_RULE_NUMBER "* ]]; do
+            NEW_RULE_NUMBER=$((NEW_RULE_NUMBER+1))
+          done
+          if [[ " $EXISTING_RULES " == *" 100 "* ]]; then
+            echo "Existing rule 100 found, changing to rule number $NEW_RULE_NUMBER"
+            aws ec2 delete-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --ingress || echo "No ingress entry with number 100"
+            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number $NEW_RULE_NUMBER --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
+          fi
+          echo "Adding inbound rule for ephemeral ports"
+          aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=1024,To=65535 --ingress --rule-action allow --cidr-block 0.0.0.0/0
       - name: Create EC2 Instance
         id: create_ec2
         env:
@@ -154,7 +191,7 @@ jobs:
           EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
-          AMI_ID: ${{ secrets.AMI_ID }}
+          AMI_ID: ${{ secrets.AMI_ID_AWS }}
           ELASTIC_IP: ${{ env.ELASTIC_IP }}
         run: |
           set -x
@@ -169,7 +206,6 @@ jobs:
           else
             echo "Outbound rules already configured."
           fi
-
       - name: Associate Elastic IP
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -180,7 +216,7 @@ jobs:
         run: |
           set -x
           aws ec2 associate-address --instance-id $INSTANCE_ID --public-ip $ELASTIC_IP
-
+      
       - name: Get instance IP
         id: get_instance_ip
         env:
@@ -196,7 +232,6 @@ jobs:
             exit 1
           fi
           echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
-
       - name: Verify SSH Connectivity
         env:
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
@@ -225,7 +260,7 @@ jobs:
         run: |
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
-       
+        
           # Create a local script file
           cat << 'EOF' > deploy_script.sh
           #!/bin/bash
