@@ -7,8 +7,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DOMAIN_NAME = os.getenv("DOMAIN_NAME")  # Substitua por seu nome de domínio
-
 def handle_uploaded_video(video_file):
     tempdir = tempfile.mkdtemp()
     video_path = os.path.join(tempdir, "uploaded_video.webm")
