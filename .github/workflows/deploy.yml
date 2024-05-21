@@ -137,27 +137,27 @@ jobs:
           SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
         run: |
           set -x
-          ROUTE_TABLE_ID=$(aws ec2.describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
+          ROUTE_TABLE_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "RouteTables[0].RouteTableId" --output text)
           if [ -n "$NAT_GATEWAY_ID" ]; then
-            NAT_ROUTE_EXISTS=$(aws ec2.describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?NatGatewayId=='$NAT_GATEWAY_ID']" --output text)
+            NAT_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?NatGatewayId=='$NAT_GATEWAY_ID']" --output text)
             if [ -z "$NAT_ROUTE_EXISTS" ]; then
-              aws ec2.create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --nat-gateway-id $NAT_GATEWAY_ID
+              aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --nat-gateway-id $NAT_GATEWAY_ID
             else
-              echo "A rota NAT já está configurada."
+              echo "NAT route already configured."
             fi
           else
-            IGW_ROUTE_EXISTS=$(aws ec2.describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='$INTERNET_GATEWAY_ID']" --output text)
+            IGW_ROUTE_EXISTS=$(aws ec2 describe-route-tables --route-table-ids $ROUTE_TABLE_ID --query "RouteTables[0].Routes[?GatewayId=='$INTERNET_GATEWAY_ID']" --output text)
             if [ -z "$IGW_ROUTE_EXISTS" ]; then
-              aws ec2.create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
+              aws ec2 create-route --route-table-id $ROUTE_TABLE_ID --destination-cidr-block 0.0.0.0/0 --gateway-id $INTERNET_GATEWAY_ID
             else
-              echo "A rota para o gateway de Internet já está configurada."
+              echo "Internet gateway route already configured."
             fi
           fi
           # Check and update S3 endpoint policy
-          S3_ENDPOINT_ID=$(aws ec2.describe-vpc-endpoints --filters "Name=service-name,Values=com.amazonaws.${{ secrets.AWS_DEFAULT_REGION }}.s3" --query "VpcEndpoints[?VpcId=='$VPC_ID'].VpcEndpointId" --output text)
+          S3_ENDPOINT_ID=$(aws ec2 describe-vpc-endpoints --filters "Name=service-name,Values=com.amazonaws.${{ secrets.AWS_DEFAULT_REGION }}.s3" --query "VpcEndpoints[?VpcId=='$VPC_ID'].VpcEndpointId" --output text)
           if [ -n "$S3_ENDPOINT_ID" ]; then
             echo "Updating S3 endpoint policy for VPC Endpoint ID: $S3_ENDPOINT_ID"
-            aws ec2.modify-vpc-endpoint --vpc-endpoint-id $S3_ENDPOINT_ID --policy-document '{
+            aws ec2 modify-vpc-endpoint --vpc-endpoint-id $S3_ENDPOINT_ID --policy-document '{
               "Statement": [
                 {
                   "Sid": "Amazon Linux AMI Repository Access",
@@ -176,7 +176,6 @@ jobs:
           else
             echo "No S3 endpoint found in the VPC."
           fi
-  
 
       - name: Configure Network ACL
         env:
@@ -186,19 +185,19 @@ jobs:
           SUBNET_ID: ${{ secrets.SUBNET_ID }}
         run: |
           set -x
-          NETWORK_ACL_ID=$(aws ec2.describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
-          EXISTING_RULES=$(aws ec2.describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[].RuleNumber" --output text)
+          NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
+          EXISTING_RULES=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[].RuleNumber" --output text)
           NEW_RULE_NUMBER=100
-          while [[ " $EXISTING_RULES " == *" $NEW_RULE_NUMBER "* ]]; then
+          while [[ " $EXISTING_RULES " == *" $NEW_RULE_NUMBER "* ]]; do
             NEW_RULE_NUMBER=$((NEW_RULE_NUMBER+1))
           done
           if [[ " $EXISTING_RULES " == *" 100 "* ]]; then
             echo "Existing rule 100 found, changing to rule number $NEW_RULE_NUMBER"
-            aws ec2.delete-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --ingress || echo "No ingress entry with number 100"
-            aws ec2.create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number $NEW_RULE_NUMBER --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
+            aws ec2 delete-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --ingress || echo "No ingress entry with number 100"
+            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number $NEW_RULE_NUMBER --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
           fi
           echo "Adding inbound rule for ephemeral ports"
-          aws ec2.create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=1024,To=65535 --ingress --rule-action allow --cidr-block 0.0.0.0/0
+          aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=1024,To=65535 --ingress --rule-action allow --cidr-block 0.0.0.0/0
 
       - name: Create EC2 Instance
         id: create_ec2
@@ -213,14 +212,14 @@ jobs:
           ELASTIC_IP: ${{ env.ELASTIC_IP }}
         run: |
           set -x
-          INSTANCE_ID=$(aws ec2.run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --associate-public-ip-address --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
+          INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --associate-public-ip-address --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-          aws ec2.wait.instance-running --instance-ids $INSTANCE_ID
+          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
           # Ensure outbound access for the instance
-          INSTANCE_SECURITY_GROUP=$(aws ec2.describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].SecurityGroups[0].GroupId" --output text)
-          OUTBOUND_RULE_EXISTS=$(aws ec2.describe-security-groups --group-ids $INSTANCE_SECURITY_GROUP --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+          INSTANCE_SECURITY_GROUP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].SecurityGroups[0].GroupId" --output text)
+          OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $INSTANCE_SECURITY_GROUP --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
           if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
-            aws ec2.authorize-security-group-egress --group-id $INSTANCE_SECURITY_GROUP --protocol -1 --port -1 --cidr 0.0.0.0/0
+            aws ec2 authorize-security-group-egress --group-id $INSTANCE_SECURITY_GROUP --protocol -1 --port -1 --cidr 0.0.0.0/0
           else
             echo "Outbound rules already configured."
           fi
@@ -234,7 +233,7 @@ jobs:
           INSTANCE_ID: ${{ env.INSTANCE_ID }}
         run: |
           set -x
-          aws ec2.associate-address --instance-id $INSTANCE_ID --public-ip $ELASTIC_IP
+          aws ec2 associate-address --instance-id $INSTANCE_ID --public-ip $ELASTIC_IP
 
       - name: Get instance IP
         id: get_instance_ip
@@ -245,7 +244,7 @@ jobs:
           INSTANCE_ID: ${{ env.INSTANCE_ID }}
         run: |
           set -x
-          INSTANCE_IP=$(aws ec2.describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
           if [ -z "$INSTANCE_IP" ]; then
             echo "Failed to retrieve instance IP"
             exit 1
@@ -256,10 +255,10 @@ jobs:
         env:
           INSTANCE_IP: ${{ env.INSTANCE_IP }}
         run: |
-          echo "Verificando conectividade SSH para $INSTANCE_IP na porta 22"
+          echo "Verifying SSH connectivity to $INSTANCE_IP on port 22"
           for i in {1..10}; do
             nc -zv $INSTANCE_IP 22 && break
-            echo "Tentativa $i: Falha ao conectar na porta 22. Aguardando 10 segundos antes de tentar novamente."
+            echo "Attempt $i: Failed to connect on port 22. Waiting 10 seconds before retrying."
             sleep 10
           done
 
@@ -296,7 +295,7 @@ jobs:
           sudo yum clean all
           sudo yum makecache
 
-          echo "Atualizando pacotes e instalando dependências"
+          echo "Updating packages and installing dependencies"
           timeout 5m sudo yum update -y
           timeout 5m sudo yum install -y python3 tmux python3-pip
 
@@ -309,7 +308,7 @@ jobs:
           # Install the required packages in the virtual environment
           pip install -r /home/ec2-user/liveness_detection/requirements.txt
 
-          # Adicione o caminho do Streamlit ao PATH
+          # Add Streamlit to the PATH
           export PATH=$PATH:/usr/local/bin/
 
           # Create .env file with secrets
@@ -321,10 +320,10 @@ jobs:
           # Source the .env file
           export $(grep -v '^#' .env | xargs)
 
-          # Substitua o IP público no streamlit_app.py
+          # Replace the placeholder in streamlit_app.py with the actual public IP
           sed -i "s|http://your-ec2-public-ip:8000/upload_video|http://$INSTANCE_IP:8000/upload_video|g" /home/ec2-user/liveness_detection/app/streamlit_app.py
 
-          # Inicia o Streamlit usando tmux
+          # Start Streamlit using tmux
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
           tmux new -d -s fast_api "source /home/ec2-user/venv/bin/activate && export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID && export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY && export AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION && uvicorn app.api:app --host 0.0.0.0 --port 8000"
           EOF
@@ -336,10 +335,10 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh"
 
           # Create the liveness_detection directory on the EC2 instance with appropriate permissions
-          ssh -o StrictHostKeyChecking-no -i ec2_key.pem ec2-user@$INSTANCE_IP "sudo mkdir -p /home/ec2-user/liveness_detection && sudo chown -R ec2-user:ec2-user /home/ec2-user/liveness_detection"
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "sudo mkdir -p /home/ec2-user/liveness_detection && sudo chown -R ec2-user:ec2-user /home/ec2-user/liveness_detection"
 
           # Transfer the application code to the EC2 instance
-          scp -o StrictHostKeyChecking-no -i ec2_key.pem -r * ec2-user@$INSTANCE_IP:/home/ec2-user/liveness_detection
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@$INSTANCE_IP:/home/ec2-user/liveness_detection
 
           # Execute the script on the EC2 instance
-          ssh -o StrictHostKeyChecking-no -i ec2_key.pem ec2-user@$INSTANCE_IP "/home/ec2-user/deploy_script.sh"
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "/home/ec2-user/deploy_script.sh"
