@@ -42,4 +42,3 @@ sudo systemctl enable sshd
 sudo systemctl status sshd
 git clone https://github.com/uesleisutil/liveness_detection.git /home/ec2-user/liveness_detection
 cd /home/ec2-user/liveness_detection
-nohup streamlit run app/streamlit_app.py --server.port 80 --server.address 0.0.0.0 &
