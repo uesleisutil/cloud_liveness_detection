@@ -3,11 +3,12 @@ import os
 import tempfile
 import streamlit.components.v1 as components
 import boto3
-import os
-from dotenv import load_dotenv
 import cv2
-
-
+from dotenv import load_dotenv
+from fastapi import FastAPI, UploadFile, File
+from typing import List
+from starlette.responses import JSONResponse
+from starlette.background import BackgroundTasks
 
 load_dotenv()
 
@@ -18,6 +19,8 @@ BUCKET_NAME = os.getenv('S3_BUCKET')
 
 rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
+
+app = FastAPI()
 
 def clear_s3_bucket():
     try:
@@ -71,8 +74,7 @@ def detect_faces_in_video(filename):
     except Exception as e:
         print(f"Error detecting faces: {e}")
         return None
-    
-    
+
 def handle_uploaded_video(video_file):
     tempdir = tempfile.mkdtemp()
     video_path = os.path.join(tempdir, "uploaded_video.webm")
@@ -81,6 +83,31 @@ def handle_uploaded_video(video_file):
         f.write(video_file.read())
 
     return video_path, tempdir
+
+@app.post("/upload_video")
+async def upload_video(background_tasks: BackgroundTasks, files: List[UploadFile] = File(...)):
+    file_paths = []
+    for file in files:
+        file_path = f"/tmp/{file.filename}"
+        with open(file_path, "wb") as buffer:
+            buffer.write(await file.read())
+        file_paths.append(file_path)
+
+    for file_path in file_paths:
+        output_path = detect_faces_in_video(file_path)
+        object_name = os.path.basename(output_path)
+        background_tasks.add_task(upload_to_s3, output_path, BUCKET_NAME, object_name)
+
+    return JSONResponse(content={"message": "Files uploaded successfully"})
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
+@app.post("/clear_bucket")
+async def clear_bucket():
+    clear_s3_bucket()
+    return {"message": "Bucket cleared successfully"}
 
 # HTML and JavaScript for video capture
 video_html = """
@@ -123,7 +150,7 @@ video_html = """
                         const formData = new FormData();
                         formData.append('file', blob, 'recorded.webm');
 
-                        fetch('http://your-ec2-public-ip/upload_video', {
+                        fetch('http://44.207.160.25:8000/upload_video', {
                             method: 'POST',
                             body: formData
                         }).then(response => response.json())

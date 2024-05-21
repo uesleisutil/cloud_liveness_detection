@@ -103,7 +103,7 @@ jobs:
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0 > /home/ec2-user/streamlit.log 2>&1"
           
           # Start FastAPI using tmux and redirect logs
-          tmux new -d -s fast_api "cd /home/ec2-user/liveness_detection && source /home/ec2-user/venv/bin/activate && uvicorn app.api:app --host 0.0.0.0 --port 8000 > /home/ec2-user/fastapi.log 2>&1"
+          tmux new -d -s fast_api "cd /home/ec2-user/liveness_detection && source /home/ec2-user/venv/bin/activate && export PYTHONPATH=/home/ec2-user/liveness_detection && uvicorn app.api:app --host 0.0.0.0 --port 8000 > /home/ec2-user/fastapi.log 2>&1"
           EOF
 
           # Transfer the script to the EC2 instance
