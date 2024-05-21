@@ -9,14 +9,14 @@ app = FastAPI()
 
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-REGION_NAME = os.getenv('AWS_REGION')
+AWS_DEFAULT_REGION = os.getenv('AWS_DEFAULT_REGION')
 BUCKET_NAME = os.getenv('S3_BUCKET')
 
-if not REGION_NAME:
-    raise ValueError("AWS_REGION environment variable not set")
+if not AWS_DEFAULT_REGION:
+    raise ValueError("AWS_DEFAULT_REGION environment variable not set")
 
-rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
-s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
+rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=AWS_DEFAULT_REGION)
+s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=AWS_DEFAULT_REGION)
 
 @app.post("/upload/")
 async def upload_image(file: UploadFile = File(...)):

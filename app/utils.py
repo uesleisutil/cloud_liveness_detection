@@ -6,14 +6,14 @@ load_dotenv()
 
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-REGION_NAME = 'us-east-1'
+AWS_DEFAULT_REGION = os.getenv('AWS_DEFAULT_REGION')
 BUCKET_NAME = os.getenv('S3_BUCKET')
 
-if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY or not REGION_NAME or not BUCKET_NAME:
+if not AWS_ACCESS_KEY_ID or not AWS_SECRET_ACCESS_KEY or not AWS_DEFAULT_REGION or not BUCKET_NAME:
     raise ValueError("AWS environment variables not set properly")
 
-rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
-s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
+rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=AWS_DEFAULT_REGION)
+s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=AWS_DEFAULT_REGION)
 
 def clear_s3_bucket():
     try:
