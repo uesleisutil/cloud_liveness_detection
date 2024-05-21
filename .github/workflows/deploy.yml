@@ -25,7 +25,7 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: |
           set -x
-          INSTANCE_IDS=$(aws ec2 describe-instances --filters Name=instance-state-state,Values=running --query 'Reservations[].Instances[].InstanceId' --output text)
+          INSTANCE_IDS=$(aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId' --output text)
           if [ -n "$INSTANCE_IDS" ]; then
             aws ec2 terminate-instances --instance-ids $INSTANCE_IDS --output text
             echo "terminate instances: $INSTANCE_IDS"
