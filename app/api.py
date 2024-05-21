@@ -2,7 +2,7 @@ import os
 import boto3
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File
-from starlette.responses import JSONResponse
+from fastapi.responses import JSONResponse
 import tempfile
 
 load_dotenv()
