@@ -9,6 +9,7 @@ import tempfile
 import uuid
 import boto3
 from dotenv import load_dotenv
+from utils import detect_faces_in_video
 
 load_dotenv()
 
@@ -42,7 +43,7 @@ def detect_faces(filename):
         return None
 
 @app.post("/upload/")
-async def upload(file: UploadFile = File(...)):
+async def upload_video(file: UploadFile = File(...)):
     try:
         tempdir = tempfile.mkdtemp()
         filepath = os.path.join(tempdir, file.filename)
@@ -51,7 +52,7 @@ async def upload(file: UploadFile = File(...)):
         s3_filename = upload_to_s3(filepath)
         if not s3_filename:
             raise HTTPException(status_code=500, detail="Failed to upload file to S3")
-        response = detect_faces(s3_filename)
+        response = detect_faces_in_video(s3_filename)
         if not response:
             raise HTTPException(status_code=500, detail="Failed to detect faces")
         return JSONResponse(content=response)
