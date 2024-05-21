@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webcam Capture</title>
+</head>
+<body>
+  <h1>Capture Webcam Image</h1>
+  <video id="video" width="640" height="480" autoplay></video>
+  <button id="snap">Snap Photo</button>
+  <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    const snap = document.getElementById('snap');
+
+    // Get access to the camera
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+        video.srcObject = stream;
+        video.play();
+      });
+    }
+
+    // Trigger photo take
+    snap.addEventListener('click', function() {
+      context.drawImage(video, 0, 0, 640, 480);
+      const dataURL = canvas.toDataURL('image/png');
+      fetch('/upload', {
+        method: 'POST',
+        body: JSON.stringify({ image: dataURL }),
+        headers: { 'Content-Type': 'application/json' }
+      }).then(response => response.json()).then(data => {
+        console.log('Success:', data);
+      }).catch(error => {
+        console.error('Error:', error);
+      });
+    });
+  </script>
+</body>
+</html>

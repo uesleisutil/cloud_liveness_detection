@@ -1,68 +1,29 @@
 import streamlit as st
-import cv2
+import boto3
 import os
-import tempfile
-import uuid
-from utils import upload_to_s3, detect_faces, clear_s3_bucket, analyze_movement
+from dotenv import load_dotenv
+import cv2
+import base64
+import requests
 
-def capture_images(num_images=10, delay=0.2, initial_delay=1):
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        raise Exception("Could not open webcam")
-    images = []
-    tempdirs = []
+# Load environment variables
+load_dotenv()
 
-    st.info(f"Initial delay of {initial_delay} seconds to adjust camera...")
-    cv2.waitKey(initial_delay * 1000)
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+REGION_NAME = os.getenv('AWS_REGION')
+BUCKET_NAME = os.getenv('S3_BUCKET')
 
-    for _ in range(num_images):
-        ret, frame = cap.read()
-        if not ret:
-            cap.release()
-            raise Exception("Could not capture image from webcam")
-        tempdir = tempfile.mkdtemp()
-        filename = os.path.join(tempdir, f"temp_{uuid.uuid4()}.jpg")
-        cv2.imwrite(filename, frame)
-        images.append(filename)
-        tempdirs.append(tempdir)
-        st.info(f"Captured image {_ + 1}")
-        cv2.waitKey(int(delay * 1000))
-
-    cap.release()
-    return images, tempdirs
+rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
+s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name='us-east-1')
 
 def main():
-    st.title("Quantum Finance - Facial Liveness Detection")
-    st.write("Click the button below to capture images and verify liveness.")
+    st.title("Webcam Capture with AWS Rekognition")
 
-    if st.button("Capture Image"):
-        try:
-            clear_s3_bucket()
-            images, tempdirs = capture_images()
-
-            st.write("Captured Images:")
-            for img in images:
-                st.image(img, caption="Captured Image", use_column_width=True)
-
-            if not analyze_movement(images):
-                st.error("Liveness not detected. Please move your head.")
-                return
-
-            s3_filenames = [upload_to_s3(img) for img in images]
-            response = detect_faces(s3_filenames[0])
-
-            if response:
-                st.success("Face detected successfully!")
-            else:
-                st.error("No face detected or liveness criteria not met.")
-
-            for img in images:
-                os.remove(img)
-            for tempdir in tempdirs:
-                os.rmdir(tempdir)
-
-        except Exception as e:
-            st.error(f"Error: {e}")
+    # Serve the HTML page
+    st.markdown("""
+        <iframe src="/static/index.html" width="100%" height="600px"></iframe>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()

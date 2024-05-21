@@ -1,6 +1,6 @@
-boto3
-python-dotenv
 streamlit
 fastapi
 uvicorn
+boto3
+python-dotenv
 opencv-python-headless
