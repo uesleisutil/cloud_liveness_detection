@@ -34,6 +34,7 @@ def clear_s3_bucket():
 
 def upload_to_s3(filename):
     try:
+        logger.info(f"Attempting to upload {filename} to bucket {BUCKET_NAME}")
         s3.upload_file(filename, BUCKET_NAME, os.path.basename(filename))
         logger.info(f"File {filename} uploaded to S3 bucket {BUCKET_NAME}")
         return os.path.basename(filename)
@@ -55,23 +56,27 @@ def detect_faces_in_video(filename):
 
 @app.post("/upload_video")
 async def upload_video(file: UploadFile = File(...)):
-    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-        tmp_file.write(await file.read())
-        tmp_file_path = tmp_file.name
-    
-    logger.info(f"Received file {file.filename}, saved as {tmp_file_path}")
+    try:
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_file.write(await file.read())
+            tmp_file_path = tmp_file.name
+        
+        logger.info(f"Received file {file.filename}, saved as {tmp_file_path}")
 
-    s3_filename = upload_to_s3(tmp_file_path)
-    if s3_filename:
-        response = detect_faces_in_video(s3_filename)
-        os.remove(tmp_file_path)
-        if response:
-            return JSONResponse(content={"message": "File uploaded and processed successfully", "response": response})
+        s3_filename = upload_to_s3(tmp_file_path)
+        if s3_filename:
+            response = detect_faces_in_video(s3_filename)
+            os.remove(tmp_file_path)
+            if response:
+                return JSONResponse(content={"message": "File uploaded and processed successfully", "response": response})
+            else:
+                return JSONResponse(content={"message": "File uploaded but face detection failed"}, status_code=500)
         else:
-            return JSONResponse(content={"message": "File uploaded but face detection failed"}, status_code=500)
-    else:
-        os.remove(tmp_file_path)
-        return JSONResponse(content={"message": "File upload failed"}, status_code=500)
+            os.remove(tmp_file_path)
+            return JSONResponse(content={"message": "File upload failed"}, status_code=500)
+    except Exception as e:
+        logger.error(f"Error in /upload_video endpoint: {e}")
+        return JSONResponse(content={"message": f"Error processing video: {e}"}, status_code=500)
 
 @app.get("/")
 def read_root():

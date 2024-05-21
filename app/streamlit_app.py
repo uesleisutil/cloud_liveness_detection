@@ -34,6 +34,7 @@ def clear_s3_bucket():
 
 def upload_to_s3(filename):
     try:
+        logger.info(f"Attempting to upload {filename} to bucket {BUCKET_NAME}")
         s3.upload_file(filename, BUCKET_NAME, os.path.basename(filename))
         logger.info(f"File {filename} uploaded to S3 bucket {BUCKET_NAME}")
         return os.path.basename(filename)
@@ -161,7 +162,7 @@ def main():
                     else:
                         st.error("No face detected or liveness criteria not met.")
                 else:
-                    st.error("Error uploading video to S3.")
+                    st.error("Failed to upload video to S3.")
             except Exception as e:
                 st.error(f"Error: {e}")
             finally:
