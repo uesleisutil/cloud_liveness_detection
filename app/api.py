@@ -42,7 +42,7 @@ def detect_faces(filename):
         print(f"Error detecting faces: {e}")
         return None
 
-@app.post("/upload/")
+@app.post("/upload_video/")
 async def upload_video(file: UploadFile = File(...)):
     try:
         tempdir = tempfile.mkdtemp()
@@ -55,7 +55,7 @@ async def upload_video(file: UploadFile = File(...)):
         response = detect_faces_in_video(s3_filename)
         if not response:
             raise HTTPException(status_code=500, detail="Failed to detect faces")
-        return JSONResponse(content=response)
+        return JSONResponse(content={"filename": s3_filename})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
