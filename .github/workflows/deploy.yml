@@ -18,58 +18,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y awscli
 
-      - name: Terminate Previous Instances
+      - name: Terminate Unwanted Instances
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: |
           set -x
-          INSTANCE_IDS=$(aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[].InstanceId' --output text)
+          DESIRED_INSTANCE_ID="i-00dfb42b896cd1295"
+          INSTANCE_IDS=$(aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[].Instances[?!InstanceId==`'$DESIRED_INSTANCE_ID'`].InstanceId' --output text)
           if [ -n "$INSTANCE_IDS" ]; then
             aws ec2 terminate-instances --instance-ids $INSTANCE_IDS --output text
-            echo "terminate instances: $INSTANCE_IDS"
+            echo "Terminated instances: $INSTANCE_IDS"
           else
-            echo "No running instances found."
+            echo "No other running instances found."
           fi
-
-      - name: Release Previous Elastic IPs
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          NAT_GATEWAY_ELASTIC_IP: ${{ secrets.NAT_GATEWAY_ELASTIC_IP }}
-        run: |
-          set -x
-          NAT_ALLOCATION_ID=$(aws ec2 describe-addresses --query "Addresses[?PublicIp=='${NAT_GATEWAY_ELASTIC_IP}'].AllocationId" --output text)
-          ELASTIC_IP_ALLOCATION_IDS=$(aws ec2 describe-addresses --query "Addresses[?PublicIp!='${NAT_GATEWAY_ELASTIC_IP}'].AllocationId" --output text)
-          if [ -n "$ELASTIC_IP_ALLOCATION_IDS" ]; then
-            for allocation_id in $ELASTIC_IP_ALLOCATION_IDS; do
-              if [ "$allocation_id" != "$NAT_ALLOCATION_ID" ]; then
-                aws ec2 release-address --allocation-id $allocation_id
-                if [ $? -eq 0 ]; then
-                  echo "Released Elastic IP with Allocation ID: $allocation_id"
-                else
-                  echo "Failed to release Elastic IP with Allocation ID: $allocation_id"
-                fi
-              else
-                echo "Skipped Elastic IP with Allocation ID: $allocation_id (associated with NAT Gateway)"
-              fi
-            done
-          else
-            echo "No Elastic IPs to release."
-          fi
-
-      - name: Create Elastic IP
-        id: create_elastic_ip
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-        run: |
-          set -x
-          ELASTIC_IP=$(aws ec2 allocate-address --query 'PublicIp' --output text)
-          echo "ELASTIC_IP=$ELASTIC_IP" >> $GITHUB_ENV
 
       - name: Configure Security Group
         env:
@@ -84,29 +47,39 @@ jobs:
             aws ec2 revoke-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 1024-65535 --cidr 0.0.0.0/0
           fi
           aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 1024-65535 --cidr 0.0.0.0/0
-          SSH_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -n "$SSH_RULE_EXISTS" ]; then
-            aws ec2 revoke-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
-          fi
-          aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
-          OUTBOUND_DNS_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='udp' && FromPort==\`53\` && ToPort==\`53\` && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_DNS_RULE_EXISTS" ]; then
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol udp --port 53 --cidr 0.0.0.0/0
-          fi
-          OUTBOUND_HTTP_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && (FromPort==\`80\` || FromPort==\`443\`) && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_HTTP_RULE_EXISTS" ]; then
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
-            aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
-          fi
-          # Allow inbound traffic on ports 8080 and 8000
-          INBOUND_8080_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`8080\` && ToPort==\`8080\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$INBOUND_8080_EXISTS" ]; then
-            aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
-          fi
-          INBOUND_8000_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`8000\` && ToPort==\`8000\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$INBOUND_8000_EXISTS" ]; then
-            aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8000 --cidr 0.0.0.0/0
-          fi
+          SSH_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` &&
+
+          - name: Configure Security Group (continued)
+          env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+            SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
+          run: |
+            set -x
+            SSH_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`22\` && ToPort==\`22\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+            if [ -n "$SSH_RULE_EXISTS" ]; then
+              aws ec2 revoke-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
+            fi
+            aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
+            OUTBOUND_DNS_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='udp' && FromPort==\`53\` && ToPort==\`53\` && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+            if [ -z "$OUTBOUND_DNS_RULE_EXISTS" ]; then
+              aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol udp --port 53 --cidr 0.0.0.0/0
+            fi
+            OUTBOUND_HTTP_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='tcp' && (FromPort==\`80\` || FromPort==\`443\`) && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+            if [ -z "$OUTBOUND_HTTP_RULE_EXISTS" ]; then
+              aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 80 --cidr 0.0.0.0/0
+              aws ec2 authorize-security-group-egress --group-id $SECURITY_GROUP_ID --protocol tcp --port 443 --cidr 0.0.0.0/0
+            fi
+            # Allow inbound traffic on ports 8080 and 8000
+            INBOUND_8080_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`8080\` && ToPort==\`8080\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+            if [ -z "$INBOUND_8080_EXISTS" ]; then
+              aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8080 --cidr 0.0.0.0/0
+            fi
+            INBOUND_8000_EXISTS=$(aws ec2 describe-security-groups --group-ids $SECURITY_GROUP_ID --query "SecurityGroups[0].IpPermissions[?FromPort==\`8000\` && ToPort==\`8000\` && IpProtocol=='tcp' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
+            if [ -z "$INBOUND_8000_EXISTS" ]; then
+              aws ec2 authorize-security-group-ingress --group-id $SECURITY_GROUP_ID --protocol tcp --port 8000 --cidr 0.0.0.0/0
+            fi
 
       - name: Ensure DNS and Hostnames are enabled
         env:
@@ -153,114 +126,6 @@ jobs:
               echo "Internet gateway route already configured."
             fi
           fi
-          # Check and update S3 endpoint policy
-          S3_ENDPOINT_ID=$(aws ec2 describe-vpc-endpoints --filters "Name=service-name,Values=com.amazonaws.${{ secrets.AWS_DEFAULT_REGION }}.s3" --query "VpcEndpoints[?VpcId=='$VPC_ID'].VpcEndpointId" --output text)
-          if [ -n "$S3_ENDPOINT_ID" ]; then
-            echo "Updating S3 endpoint policy for VPC Endpoint ID: $S3_ENDPOINT_ID"
-            aws ec2 modify-vpc-endpoint --vpc-endpoint-id $S3_ENDPOINT_ID --policy-document '{
-              "Statement": [
-                {
-                  "Sid": "Amazon Linux AMI Repository Access",
-                  "Principal": "*",
-                  "Action": [
-                    "s3:GetObject"
-                  ],
-                  "Effect": "Allow",
-                  "Resource": [
-                    "arn:aws:s3:::packages.*.amazonaws.com/*",
-                    "arn:aws:s3:::repo.*.amazonaws.com/*"
-                  ]
-                }
-              ]
-            }'
-          else
-            echo "No S3 endpoint found in the VPC."
-          fi
-
-      - name: Configure Network ACL
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          SUBNET_ID: ${{ secrets.SUBNET_ID }}
-        run: |
-          set -x
-          NETWORK_ACL_ID=$(aws ec2 describe-network-acls --filters "Name=association.subnet-id,Values=$SUBNET_ID" --query "NetworkAcls[0].NetworkAclId" --output text)
-          EXISTING_RULES=$(aws ec2 describe-network-acls --network-acl-ids $NETWORK_ACL_ID --query "NetworkAcls[0].Entries[].RuleNumber" --output text)
-          NEW_RULE_NUMBER=100
-          while [[ " $EXISTING_RULES " == *" $NEW_RULE_NUMBER "* ]]; do
-            NEW_RULE_NUMBER=$((NEW_RULE_NUMBER+1))
-          done
-          if [[ " $EXISTING_RULES " == *" 100 "* ]]; then
-            echo "Existing rule 100 found, changing to rule number $NEW_RULE_NUMBER"
-            aws ec2 delete-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --ingress || echo "No ingress entry with number 100"
-            aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number $NEW_RULE_NUMBER --protocol tcp --port-range From=22,To=22 --ingress --rule-action allow --cidr-block 0.0.0.0/0
-          fi
-          echo "Adding inbound rule for ephemeral ports"
-          aws ec2 create-network-acl-entry --network-acl-id $NETWORK_ACL_ID --rule-number 100 --protocol tcp --port-range From=1024,To=65535 --ingress --rule-action allow --cidr-block 0.0.0.0/0
-
-      - name: Create EC2 Instance
-        id: create_ec2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          EC2_KEY_NAME: ${{ secrets.EC2_KEY_NAME }}
-          SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }}
-          SUBNET_ID: ${{ secrets.SUBNET_ID }}
-          AMI_ID: ${{ secrets.AMI_ID_AWS }}
-          ELASTIC_IP: ${{ env.ELASTIC_IP }}
-        run: |
-          set -x
-          INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI_ID --count 1 --instance-type t2.micro --key-name $EC2_KEY_NAME --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --associate-public-ip-address --user-data file://ec2-user-data.sh --query 'Instances[0].InstanceId' --output text)
-          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
-          # Ensure outbound access for the instance
-          INSTANCE_SECURITY_GROUP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[0].Instances[0].SecurityGroups[0].GroupId" --output text)
-          OUTBOUND_RULE_EXISTS=$(aws ec2 describe-security-groups --group-ids $INSTANCE_SECURITY_GROUP --query "SecurityGroups[0].IpPermissionsEgress[?IpProtocol=='-1' && contains(IpRanges[].CidrIp, '0.0.0.0/0')]" --output text)
-          if [ -z "$OUTBOUND_RULE_EXISTS" ]; then
-            aws ec2 authorize-security-group-egress --group-id $INSTANCE_SECURITY_GROUP --protocol -1 --port -1 --cidr 0.0.0.0/0
-          else
-            echo "Outbound rules already configured."
-          fi
-
-      - name: Associate Elastic IP
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          ELASTIC_IP: ${{ env.ELASTIC_IP }}
-          INSTANCE_ID: ${{ env.INSTANCE_ID }}
-        run: |
-          set -x
-          aws ec2 associate-address --instance-id $INSTANCE_ID --public-ip $ELASTIC_IP
-
-      - name: Get instance IP
-        id: get_instance_ip
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          INSTANCE_ID: ${{ env.INSTANCE_ID }}
-        run: |
-          set -x
-          INSTANCE_IP=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-          if [ -z "$INSTANCE_IP" ]; then
-            echo "Failed to retrieve instance IP"
-            exit 1
-          fi
-          echo "INSTANCE_IP=$INSTANCE_IP" >> $GITHUB_ENV
-
-      - name: Verify SSH Connectivity
-        env:
-          INSTANCE_IP: ${{ env.INSTANCE_IP }}
-        run: |
-          echo "Verifying SSH connectivity to $INSTANCE_IP on port 22"
-          for i in {1..10}; do
-            nc -zv $INSTANCE_IP 22 && break
-            echo "Attempt $i: Failed to connect on port 22. Waiting 10 seconds before retrying."
-            sleep 10
-          done
 
       - name: Deploy Streamlit App
         env:
@@ -273,7 +138,8 @@ jobs:
           AMI_ID: ${{ secrets.AMI_ID }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          INSTANCE_IP: ${{ env.INSTANCE_IP }}
+          INSTANCE_ID: "i-00dfb42b896cd1295"
+          INSTANCE_IP: "44.207.160.25"
         run: |
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
@@ -321,7 +187,7 @@ jobs:
           export $(grep -v '^#' .env | xargs)
 
           # Replace the placeholder in streamlit_app.py with the actual public IP
-          sed -i "s|http://your-ec2-public-ip:8000/upload_video|http://$INSTANCE_IP:8000/upload_video|g" /home/ec2-user/liveness_detection/app/streamlit_app.py
+          sed -i "s|http://your-ec2-public-ip:8000/upload_video|http://44.207.160.25:8000/upload_video|g" /home/ec2-user/liveness_detection/app/streamlit_app.py
 
           # Start Streamlit using tmux
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
@@ -329,16 +195,16 @@ jobs:
           EOF
 
           # Transfer the script to the EC2 instance
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@$INSTANCE_IP:/home/ec2-user/deploy_script.sh
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@44.207.160.25:/home/ec2-user/
 
           # Set executable permissions for the script
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "chmod +x /home/ec2-user/deploy_script.sh"
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "chmod +x /home/ec2-user/deploy_script.sh"
 
           # Create the liveness_detection directory on the EC2 instance with appropriate permissions
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "sudo mkdir -p /home/ec2-user/liveness_detection && sudo chown -R ec2-user:ec2-user /home/ec2-user/liveness_detection"
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "sudo mkdir -p /home/ec2-user/liveness_detection && sudo chown -R ec2-user:ec2-user /home/ec2-user/liveness_detection"
 
           # Transfer the application code to the EC2 instance
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@$INSTANCE_IP:/home/ec2-user/liveness_detection
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@44.207.160.25:/home/ec2-user/liveness_detection
 
           # Execute the script on the EC2 instance
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@$INSTANCE_IP "/home/ec2-user/deploy_script.sh"
+          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "/home/ec2-user/deploy_script.sh"
