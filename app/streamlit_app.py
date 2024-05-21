@@ -3,6 +3,11 @@ import os
 import tempfile
 from utils import upload_to_s3, detect_faces_in_video, clear_s3_bucket
 import streamlit.components.v1 as components
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DOMAIN_NAME = os.getenv("DOMAIN_NAME")  # Substitua por seu nome de domínio
 
 def handle_uploaded_video(video_file):
     tempdir = tempfile.mkdtemp()
@@ -14,7 +19,7 @@ def handle_uploaded_video(video_file):
     return video_path, tempdir
 
 # HTML and JavaScript for video capture
-video_html = """
+video_html = f"""
     <div>
         <video id="video" width="640" height="480" autoplay muted></video>
         <div>
@@ -54,7 +59,7 @@ video_html = """
                         const formData = new FormData();
                         formData.append('file', blob, 'recorded.webm');
 
-                        fetch('/upload_video', {
+                        fetch('http://{DOMAIN_NAME}:8000/upload_video', {
                             method: 'POST',
                             body: formData
                         }).then(response => response.json())
