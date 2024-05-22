@@ -1,28 +1,18 @@
-import streamlit as st
 import os
-import tempfile
-import streamlit.components.v1 as components
-import boto3
 from dotenv import load_dotenv
+import streamlit as st
+import streamlit.components.v1 as components
+import tempfile
+import boto3
 import cv2
-import logging
+import numpy as np
 
-# Carregar variáveis de ambiente
-load_dotenv()
+load_dotenv(dotenv_path='/home/ec2-user/liveness_detection/.env')
 
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-REGION_NAME = os.getenv('AWS_REGION')
+REGION_NAME = os.getenv('AWS_DEFAULT_REGION')
 BUCKET_NAME = os.getenv('S3_BUCKET')
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-logger.info(f"AWS_ACCESS_KEY_ID: {AWS_ACCESS_KEY_ID}")
-logger.info(f"AWS_SECRET_ACCESS_KEY: {AWS_SECRET_ACCESS_KEY}")
-logger.info(f"REGION_NAME: {REGION_NAME}")
-logger.info(f"BUCKET_NAME: {BUCKET_NAME}")
 
 rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
@@ -33,19 +23,41 @@ def clear_s3_bucket():
         if 'Contents' in bucket:
             for item in bucket['Contents']:
                 s3.delete_object(Bucket=BUCKET_NAME, Key=item['Key'])
-        logger.info("All images deleted from S3 bucket.")
+        print("All images deleted from S3 bucket.")
     except Exception as e:
-        logger.error(f"Error deleting images from S3: {e}")
+        print(f"Error deleting images from S3: {e}")
 
 def upload_to_s3(filename):
     try:
-        logger.info(f"Attempting to upload {filename} to bucket {BUCKET_NAME}")
         s3.upload_file(filename, BUCKET_NAME, os.path.basename(filename))
-        logger.info(f"File {filename} uploaded to S3 bucket {BUCKET_NAME}")
         return os.path.basename(filename)
     except Exception as e:
-        logger.error(f"Error uploading file to S3: {e}")
+        print(f"Error uploading file to S3: {e}")
         return None
+
+def detect_faces(filename):
+    try:
+        response = rekognition.detect_faces(
+            Image={'S3Object': {'Bucket': BUCKET_NAME, 'Name': filename}},
+            Attributes=['ALL']
+        )
+        return response
+    except Exception as e:
+        print(f"Error detecting faces: {e}")
+        return None
+
+def analyze_movement(images):
+    if len(images) < 2:
+        return False
+
+    img1 = cv2.imread(images[0], cv2.IMREAD_GRAYSCALE)
+    img2 = cv2.imread(images[1], cv2.IMREAD_GRAYSCALE)
+
+    diff = cv2.absdiff(img1, img2)
+    non_zero_count = np.count_nonzero(diff)
+
+    threshold = 5000
+    return non_zero_count > threshold
 
 def detect_faces_in_video(filename):
     try:
@@ -53,24 +65,22 @@ def detect_faces_in_video(filename):
             Video={'S3Object': {'Bucket': BUCKET_NAME, 'Name': filename}},
             Attributes=['ALL']
         )
-        logger.info(f"Rekognition response: {response}")
         return response
     except Exception as e:
-        logger.error(f"Error detecting faces: {e}")
+        print(f"Error detecting faces: {e}")
         return None
 
 def handle_uploaded_video(video_file):
     tempdir = tempfile.mkdtemp()
     video_path = os.path.join(tempdir, "uploaded_video.webm")
-    
+
     with open(video_path, 'wb') as f:
         f.write(video_file.read())
-    logger.info(f"Video saved to {video_path}")
 
     return video_path, tempdir
 
 # HTML and JavaScript for video capture
-video_html = f"""
+video_html = """
     <div>
         <video id="video" width="640" height="480" autoplay muted></video>
         <div>
@@ -85,19 +95,19 @@ video_html = f"""
             const startButton = document.getElementById('startButton');
             const stopButton = document.getElementById('stopButton');
 
-            startButton.addEventListener('click', async () => {{
+            startButton.addEventListener('click', async () => {
                 console.log("Start button clicked");
-                try {{
-                    const stream = await navigator.mediaDevices.getUserMedia({{ video: true }});
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                     console.log("Media stream obtained", stream);
                     video.srcObject = stream;
                     recordedBlobs = [];
-                    const options = {{ mimeType: 'video/webm;codecs=vp9' }};
+                    const options = { mimeType: 'video/webm;codecs=vp9' };
                     mediaRecorder = new MediaRecorder(stream, options);
 
-                    mediaRecorder.onstop = async (event) => {{
+                    mediaRecorder.onstop = async (event) => {
                         console.log("Recording stopped", event);
-                        const blob = new Blob(recordedBlobs, {{ type: 'video/webm' }});
+                        const blob = new Blob(recordedBlobs, { type: 'video/webm' });
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.style.display = 'none';
@@ -110,35 +120,35 @@ video_html = f"""
                         const formData = new FormData();
                         formData.append('file', blob, 'recorded.webm');
 
-                        fetch('http://44.207.160.25:8000/upload_video', {{
+                        fetch('http://44.207.160.25:8000/upload_video', {
                             method: 'POST',
                             body: formData
-                        }}).then(response => response.json())
+                        }).then(response => response.json())
                           .then(data => console.log('Success:', data))
                           .catch(error => console.error('Error:', error));
-                    }};
+                    };
 
-                    mediaRecorder.ondataavailable = (event) => {{
-                        if (event.data && event.data.size > 0) {{
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data && event.data.size > 0) {
                             recordedBlobs.push(event.data);
-                        }}
-                    }};
+                        }
+                    };
 
                     mediaRecorder.start();
                     console.log("MediaRecorder started", mediaRecorder);
                     startButton.disabled = true;
                     stopButton.disabled = false;
-                }} catch (error) {{
+                } catch (error) {
                     console.error("Error accessing media devices.", error);
-                }}
-            }});
+                }
+            });
 
-            stopButton.addEventListener('click', () => {{
+            stopButton.addEventListener('click', () => {
                 mediaRecorder.stop();
                 video.srcObject.getTracks().forEach(track => track.stop());
                 startButton.disabled = false;
                 stopButton.disabled = true;
-            }});
+            });
         </script>
     </div>
 """
@@ -159,16 +169,13 @@ def main():
             try:
                 clear_s3_bucket()
                 s3_filename = upload_to_s3(video_path)
-                if s3_filename:
-                    response = detect_faces_in_video(s3_filename)
+                response = detect_faces_in_video(s3_filename)
 
-                    if response:
-                        liveness_confidence = response['FaceDetails'][0]['Confidence']
-                        st.success(f"Face detected successfully! Liveness confidence: {liveness_confidence:.2f}%")
-                    else:
-                        st.error("No face detected or liveness criteria not met.")
+                if response:
+                    liveness_confidence = response['FaceDetails'][0]['Confidence']
+                    st.success(f"Face detected successfully! Liveness confidence: {liveness_confidence:.2f}%")
                 else:
-                    st.error("Failed to upload video to S3.")
+                    st.error("No face detected or liveness criteria not met.")
             except Exception as e:
                 st.error(f"Error: {e}")
             finally:
