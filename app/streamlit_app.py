@@ -1,23 +1,18 @@
-import os
-from dotenv import load_dotenv
 import streamlit as st
-import streamlit.components.v1 as components
+import os
 import tempfile
+import streamlit.components.v1 as components
 import boto3
+from dotenv import load_dotenv
 import cv2
 import numpy as np
 
-load_dotenv(dotenv_path='/home/ec2-user/liveness_detection/.env')
+load_dotenv()
 
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 REGION_NAME = os.getenv('AWS_DEFAULT_REGION')
 BUCKET_NAME = os.getenv('S3_BUCKET')
-
-print(f"AWS_ACCESS_KEY_ID: {AWS_ACCESS_KEY_ID}")
-print(f"AWS_SECRET_ACCESS_KEY: {AWS_SECRET_ACCESS_KEY}")
-print(f"REGION_NAME: {REGION_NAME}")
-print(f"BUCKET_NAME: {BUCKET_NAME}")
 
 rekognition = boto3.client('rekognition', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
 s3 = boto3.client('s3', aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY, region_name=REGION_NAME)
@@ -77,8 +72,8 @@ def detect_faces_in_video(filename):
 
 def handle_uploaded_video(video_file):
     tempdir = tempfile.mkdtemp()
-    video_path = os.path.join(tempdir, "uploaded_video.webm")
-
+    video_path = os.path.join(tempdir, video_file.name)
+    
     with open(video_path, 'wb') as f:
         f.write(video_file.read())
 
@@ -164,7 +159,7 @@ def main():
 
     components.html(video_html, height=600)
 
-    uploaded_video = st.file_uploader("Upload your recorded video", type=["webm"])
+    uploaded_video = st.file_uploader("Upload your recorded video", type=["webm", "mp4", "avi", "mov"])
     if uploaded_video is not None:
         video_path, tempdir = handle_uploaded_video(uploaded_video)
 
