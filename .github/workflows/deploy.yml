@@ -17,7 +17,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y awscli
-
       - name: Terminate Previous Instances (Keep Target Instance)
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -32,7 +31,6 @@ jobs:
           else
             echo "No running instances found."
           fi
-
       - name: Prepare secrets
         run: |
           echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id.txt
@@ -41,7 +39,6 @@ jobs:
           echo "${{ secrets.S3_BUCKET }}" > s3_bucket.txt
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
-
       - name: Deploy to EC2
         run: |
           # Transfer the secret files to the EC2 instance
@@ -49,12 +46,10 @@ jobs:
           scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_secret_access_key.txt ec2-user@44.207.160.25:/home/ec2-user/aws_secret_access_key.txt
           scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_default_region.txt ec2-user@44.207.160.25:/home/ec2-user/aws_default_region.txt
           scp -o StrictHostKeyChecking=no -i ec2_key.pem s3_bucket.txt ec2-user@44.207.160.25:/home/ec2-user/s3_bucket.txt
-
           # Create a local script file
           cat << 'EOF' > deploy_script.sh
           #!/bin/bash
           set -e
-
           # Stop any running package managers
           sudo pkill -f yum || true
           sudo pkill -f apt-get || true
@@ -62,59 +57,43 @@ jobs:
           sudo pkill -9 -f apt-get || true
           sudo killall -9 yum || true
           sudo killall -9 apt-get || true
-
           # Clean and update package cache
           sudo yum clean all
           sudo yum makecache
-
           echo "Updating packages and installing dependencies"
           timeout 5m sudo yum update -y
           timeout 5m sudo yum install -y python3 tmux python3-pip
-
           # Create a virtual environment
           python3 -m venv venv
-
           # Activate the virtual environment
           source venv/bin/activate
-
           # Install the required packages in the virtual environment
           pip install -r /home/ec2-user/liveness_detection/requirements.txt
-
           # Add Streamlit to the PATH
           export PATH=$PATH:/usr/local/bin/
-
           # Create .env file with secrets
           echo "AWS_ACCESS_KEY_ID=$(cat /home/ec2-user/aws_access_key_id.txt)" > /home/ec2-user/liveness_detection/.env
           echo "AWS_SECRET_ACCESS_KEY=$(cat /home/ec2-user/aws_secret_access_key.txt)" >> /home/ec2-user/liveness_detection/.env
           echo "AWS_DEFAULT_REGION=$(cat /home/ec2-user/aws_default_region.txt)" >> /home/ec2-user/liveness_detection/.env
           echo "S3_BUCKET=$(cat /home/ec2-user/s3_bucket.txt)" >> /home/ec2-user/liveness_detection/.env
-
           # Source the .env file
           export $(grep -v '^#' /home/ec2-user/liveness_detection/.env | xargs)
-
           # Kill existing tmux sessions
           tmux kill-session -t streamlit_session || true
           tmux kill-session -t fast_api || true
-
           # Start Streamlit using tmux
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
           tmux new -d -s fast_api "source /home/ec2-user/venv/bin/activate && uvicorn streamlit_app:app --host 0.0.0.0 --port 8000"
           EOF
-
           # Transfer the script to the EC2 instance
           scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@44.207.160.25:/home/ec2-user/
-
           # Set executable permissions for the script
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "chmod +x /home/ec2-user/deploy_script.sh"
-
           # Create the liveness_detection directory on the EC2 instance with appropriate permissions
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "sudo mkdir -p /home/ec2-user/liveness_detection && sudo chown -R ec2-user:ec2-user /home/ec2-user/liveness_detection"
-
           # Transfer the application code to the EC2 instance
           scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@44.207.160.25:/home/ec2-user/liveness_detection
-
           # Verify environment variables
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "cat /home/ec2-user/liveness_detection/.env"
-
           # Execute the script on the EC2 instance
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "/home/ec2-user/deploy_script.sh"
