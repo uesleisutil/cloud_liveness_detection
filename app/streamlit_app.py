@@ -35,7 +35,7 @@ def upload_to_s3(filename):
         print(f"Error uploading file to S3: {e}")
         return None
 
-def detect_faces(filename):
+def detect_faces_in_image(filename):
     try:
         response = rekognition.detect_faces(
             Image={'S3Object': {'Bucket': BUCKET_NAME, 'Name': filename}},
@@ -46,28 +46,33 @@ def detect_faces(filename):
         print(f"Error detecting faces: {e}")
         return None
 
-def analyze_movement(images):
-    if len(images) < 2:
-        return False
-
-    img1 = cv2.imread(images[0], cv2.IMREAD_GRAYSCALE)
-    img2 = cv2.imread(images[1], cv2.IMREAD_GRAYSCALE)
-
-    diff = cv2.absdiff(img1, img2)
-    non_zero_count = np.count_nonzero(diff)
-
-    threshold = 5000
-    return non_zero_count > threshold
-
 def detect_faces_in_video(filename):
     try:
-        response = rekognition.detect_faces(
+        response = rekognition.start_face_detection(
             Video={'S3Object': {'Bucket': BUCKET_NAME, 'Name': filename}},
-            Attributes=['ALL']
+            NotificationChannel={
+                'SNSTopicArn': 'arn:aws:sns:us-east-1:123456789012:AmazonRekognitionTopic', # Use your SNS topic ARN here
+                'RoleArn': 'arn:aws:iam::123456789012:role/AmazonRekognitionRole' # Use your IAM role ARN here
+            },
+            FaceAttributes='ALL'
         )
-        return response
+        job_id = response['JobId']
+        print(f"Started face detection job with ID: {job_id}")
+
+        # Wait for the job to complete
+        while True:
+            result = rekognition.get_face_detection(JobId=job_id)
+            if result['JobStatus'] in ['SUCCEEDED', 'FAILED']:
+                break
+            time.sleep(5)
+
+        if result['JobStatus'] == 'SUCCEEDED':
+            return result['Faces']
+        else:
+            print(f"Face detection job failed with status: {result['JobStatus']}")
+            return None
     except Exception as e:
-        print(f"Error detecting faces: {e}")
+        print(f"Error detecting faces in video: {e}")
         return None
 
 def handle_uploaded_video(video_file):
@@ -172,8 +177,7 @@ def main():
                 response = detect_faces_in_video(s3_filename)
 
                 if response:
-                    liveness_confidence = response['FaceDetails'][0]['Confidence']
-                    st.success(f"Face detected successfully! Liveness confidence: {liveness_confidence:.2f}%")
+                    st.success(f"Face detected successfully! Detected faces: {len(response)}")
                 else:
                     st.error("No face detected or liveness criteria not met.")
             except Exception as e:
