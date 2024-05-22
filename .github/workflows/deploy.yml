@@ -41,20 +41,20 @@ jobs:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
         run: |
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id.txt
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" > aws_secret_access_key.txt
-          echo "AWS_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" > aws_default_region.txt
-          echo "S3_BUCKET=${{ secrets.S3_BUCKET }}" > s3_bucket.txt
+          echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id.txt
+          echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > aws_secret_access_key.txt
+          echo "${{ secrets.AWS_DEFAULT_REGION }}" > aws_default_region.txt
+          echo "${{ secrets.S3_BUCKET }}" > s3_bucket.txt
           echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
 
       - name: Deploy to EC2
         run: |
           # Transfer the secret files to the EC2 instance
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_access_key_id.txt ec2-user@44.207.160.25:/home/ec2-user/
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_secret_access_key.txt ec2-user@44.207.160.25:/home/ec2-user/
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_default_region.txt ec2-user@44.207.160.25:/home/ec2-user/
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem s3_bucket.txt ec2-user@44.207.160.25:/home/ec2-user/
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_access_key_id.txt ec2-user@44.207.160.25:/home/ec2-user/aws_access_key_id.txt
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_secret_access_key.txt ec2-user@44.207.160.25:/home/ec2-user/aws_secret_access_key.txt
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_default_region.txt ec2-user@44.207.160.25:/home/ec2-user/aws_default_region.txt
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem s3_bucket.txt ec2-user@44.207.160.25:/home/ec2-user/s3_bucket.txt
 
           # Create a local script file
           cat << 'EOF' > deploy_script.sh
@@ -83,38 +83,4 @@ jobs:
           # Activate the virtual environment
           source venv/bin/activate
 
-          # Install the required packages in the virtual environment
-          pip install -r /home/ec2-user/liveness_detection/requirements.txt
-
-          # Add Streamlit to the PATH
-          export PATH=$PATH:/usr/local/bin/
-
-          # Create .env file with secrets
-          echo "AWS_ACCESS_KEY_ID=$(cat /home/ec2-user/aws_access_key_id.txt)" > /home/ec2-user/liveness_detection/.env
-          echo "AWS_SECRET_ACCESS_KEY=$(cat /home/ec2-user/aws_secret_access_key.txt)" >> /home/ec2-user/liveness_detection/.env
-          echo "AWS_DEFAULT_REGION=$(cat /home/ec2-user/aws_default_region.txt)" >> /home/ec2-user/liveness_detection/.env
-          echo "S3_BUCKET=$(cat /home/ec2-user/s3_bucket.txt)" >> /home/ec2-user/liveness_detection/.env
-
-          # Source the .env file
-          export $(grep -v '^#' /home/ec2-user/liveness_detection/.env | xargs)
-
-          # Kill existing tmux sessions
-          tmux kill-session -t streamlit_session || true
-          tmux kill-session -t fast_api || true
-
-          # Start Streamlit using tmux
-          tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
-          tmux new -d -s fast_api "source /home/ec2-user/venv/bin/activate && uvicorn streamlit_app:app --host 0.0.0.0 --port 8000"
-          EOF
-
-          # Transfer the script to the EC2 instance
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem deploy_script.sh ec2-user@44.207.160.25:/home/ec2-user/
-
-          # Set executable permissions for the script
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "chmod +x /home/ec2-user/deploy_script.sh"
-
-          # Create the liveness_detection directory on the EC2 instance with appropriate permissions
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "sudo mkdir -p /home/ec2-user/liveness_detection && sudo chown -R ec2-user:ec2-user /home/ec2-user/liveness_detection"
-
-          # Transfer the application code to the EC2 instance
-          scp -o Stric
+          # Install the required packages in the virtual en
