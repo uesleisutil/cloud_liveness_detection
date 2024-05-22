@@ -6,6 +6,7 @@ import boto3
 from dotenv import load_dotenv
 import cv2
 import numpy as np
+import time
 
 load_dotenv()
 
@@ -174,12 +175,14 @@ def main():
             try:
                 clear_s3_bucket()
                 s3_filename = upload_to_s3(video_path)
-                response = detect_faces_in_video(s3_filename)
-
-                if response:
-                    st.success(f"Face detected successfully! Detected faces: {len(response)}")
+                if s3_filename:
+                    response = detect_faces_in_video(s3_filename)
+                    if response:
+                        st.success(f"Face detected successfully! Detected faces: {len(response)}")
+                    else:
+                        st.error("No face detected or liveness criteria not met.")
                 else:
-                    st.error("No face detected or liveness criteria not met.")
+                    st.error("Failed to upload video to S3.")
             except Exception as e:
                 st.error(f"Error: {e}")
             finally:
