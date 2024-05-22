@@ -33,7 +33,7 @@ jobs:
             echo "No running instances found."
           fi
 
-      - name: Create Environment Variables and Key File
+      - name: Prepare secrets
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -41,21 +41,20 @@ jobs:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
         run: |
-          echo "${AWS_ACCESS_KEY_ID}" > aws_access_key_id.env
-          echo "${AWS_SECRET_ACCESS_KEY}" > aws_secret_access_key.env
-          echo "${AWS_DEFAULT_REGION}" > aws_default_region.env
-          echo "${S3_BUCKET}" > s3_bucket.env
-          echo "${EC2_KEY_PEM}" > ec2_key_pem.env
-          echo "${EC2_KEY_PEM}" > ec2_key.pem
+          echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id.txt
+          echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > aws_secret_access_key.txt
+          echo "${{ secrets.AWS_DEFAULT_REGION }}" > aws_default_region.txt
+          echo "${{ secrets.S3_BUCKET }}" > s3_bucket.txt
+          echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key.pem
           chmod 600 ec2_key.pem
 
       - name: Deploy to EC2
         run: |
-          # Transfer the individual env files and key file to the EC2 instance
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_access_key_id.env ec2-user@44.207.160.25:/home/ec2-user/
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_secret_access_key.env ec2-user@44.207.160.25:/home/ec2-user/
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_default_region.env ec2-user@44.207.160.25:/home/ec2-user/
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem s3_bucket.env ec2-user@44.207.160.25:/home/ec2-user/
+          # Transfer the secret files to the EC2 instance
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_access_key_id.txt ec2-user@44.207.160.25:/home/ec2-user/
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_secret_access_key.txt ec2-user@44.207.160.25:/home/ec2-user/
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_default_region.txt ec2-user@44.207.160.25:/home/ec2-user/
+          scp -o StrictHostKeyChecking=no -i ec2_key.pem s3_bucket.txt ec2-user@44.207.160.25:/home/ec2-user/
 
           # Create a local script file
           cat << 'EOF' > deploy_script.sh
@@ -90,8 +89,11 @@ jobs:
           # Add Streamlit to the PATH
           export PATH=$PATH:/usr/local/bin/
 
-          # Combine individual env files into one .env file
-          cat /home/ec2-user/aws_access_key_id.env /home/ec2-user/aws_secret_access_key.env /home/ec2-user/aws_default_region.env /home/ec2-user/s3_bucket.env > /home/ec2-user/liveness_detection/.env
+          # Create .env file with secrets
+          cat /home/ec2-user/aws_access_key_id.txt > /home/ec2-user/liveness_detection/.env
+          echo "AWS_SECRET_ACCESS_KEY=$(cat /home/ec2-user/aws_secret_access_key.txt)" >> /home/ec2-user/liveness_detection/.env
+          echo "AWS_DEFAULT_REGION=$(cat /home/ec2-user/aws_default_region.txt)" >> /home/ec2-user/liveness_detection/.env
+          echo "S3_BUCKET=$(cat /home/ec2-user/s3_bucket.txt)" >> /home/ec2-user/liveness_detection/.env
 
           # Source the .env file
           export $(grep -v '^#' /home/ec2-user/liveness_detection/.env | xargs)
