@@ -117,10 +117,4 @@ jobs:
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "sudo mkdir -p /home/ec2-user/liveness_detection && sudo chown -R ec2-user:ec2-user /home/ec2-user/liveness_detection"
 
           # Transfer the application code to the EC2 instance
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem -r * ec2-user@44.207.160.25:/home/ec2-user/liveness_detection
-
-          # Verify environment variables
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "cat /home/ec2-user/liveness_detection/.env"
-
-          # Execute the script on the EC2 instance
-          ssh -o StrictHostKeyChecking=no -i ec2_key.pem ec2-user@44.207.160.25 "/home/ec2-user/deploy_script.sh"
+          scp -o Stric
