@@ -86,8 +86,9 @@ jobs:
           # Source the .env file
           export $(grep -v '^#' /home/ec2-user/liveness_detection/.env | xargs)
 
-          # Replace the placeholder in streamlit_app.py with the actual public IP
-          sed -i "s|http://your-ec2-public-ip:8000/upload_video|http://44.207.160.25:8000/upload_video|g" /home/ec2-user/liveness_detection/app/streamlit_app.py
+          # Kill existing tmux sessions
+          tmux kill-session -t streamlit_session || true
+          tmux kill-session -t fast_api || true
 
           # Start Streamlit using tmux
           tmux new -d -s streamlit_session "source /home/ec2-user/venv/bin/activate && streamlit run /home/ec2-user/liveness_detection/app/streamlit_app.py --server.port 8080 --server.address 0.0.0.0"
