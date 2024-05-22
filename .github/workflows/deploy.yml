@@ -33,7 +33,7 @@ jobs:
             echo "No running instances found."
           fi
 
-      - name: Deploy to EC2
+      - name: Create Environment Variables and Key File
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -41,19 +41,21 @@ jobs:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           EC2_KEY_PEM: ${{ secrets.EC2_KEY_PEM }}
         run: |
-          # Create individual env files
-          echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > aws_access_key_id.env
-          echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > aws_secret_access_key.env
-          echo "${{ secrets.AWS_DEFAULT_REGION }}" > aws_default_region.env
-          echo "${{ secrets.S3_BUCKET }}" > s3_bucket.env
-          echo "${{ secrets.EC2_KEY_PEM }}" > ec2_key_pem.env
+          echo "${AWS_ACCESS_KEY_ID}" > aws_access_key_id.env
+          echo "${AWS_SECRET_ACCESS_KEY}" > aws_secret_access_key.env
+          echo "${AWS_DEFAULT_REGION}" > aws_default_region.env
+          echo "${S3_BUCKET}" > s3_bucket.env
+          echo "${EC2_KEY_PEM}" > ec2_key_pem.env
+          echo "${EC2_KEY_PEM}" > ec2_key.pem
+          chmod 600 ec2_key.pem
 
-          # Transfer the individual env files to the EC2 instance
+      - name: Deploy to EC2
+        run: |
+          # Transfer the individual env files and key file to the EC2 instance
           scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_access_key_id.env ec2-user@44.207.160.25:/home/ec2-user/
           scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_secret_access_key.env ec2-user@44.207.160.25:/home/ec2-user/
           scp -o StrictHostKeyChecking=no -i ec2_key.pem aws_default_region.env ec2-user@44.207.160.25:/home/ec2-user/
           scp -o StrictHostKeyChecking=no -i ec2_key.pem s3_bucket.env ec2-user@44.207.160.25:/home/ec2-user/
-          scp -o StrictHostKeyChecking=no -i ec2_key.pem ec2_key_pem.env ec2-user@44.207.160.25:/home/ec2-user/
 
           # Create a local script file
           cat << 'EOF' > deploy_script.sh
